@@ -1,0 +1,50 @@
+🦅 墨鸦-Strata v4.1 (Security-Enhanced) 🦅
+
+"墨鸦"——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
+
+初次使用：
+/ai set api_key <你的 sk-xxx key>
+/ai set search_api_key <你的搜索 key>
+/ai on 启用当前对话框 AI 功能
+
+默认值（可用 /ai set 更改）：
+model = deepseek-v4-flash
+context_ttl = 60（对话保留一小时）
+max_turns = 80（保留最新八十轮，满 token 自动截断）
+ai_url = https://api.deepseek.com
+search_provider = bocha
+show_stats = 1（显示 token 用量，可关闭）
+debug = 0（非开发人员不要开启）
+temperature = 0.5
+pat_wake = 1（拍一拍唤醒）
+ai_prefix = 1（AI 消息强制 [AI] 前缀）
+sewarden = 1 (WARDEN增强防护，不建议关闭)
+
+核心技术：
+1. Strata 热冷分层 — #M/#P 编号，公有记忆含可信度/记录者/活跃时间
+2. CAST 三段式 — 自述 > 转述 > 未知主体，OWNER > ADMIN > MEMBER
+3. WARDEN-I 三层隔离 — name 纯 UIN 不可伪造，<s><user/> 系统层，<u> 用户层永不信任。默认开启SEWarden增强防护(预清洗恶意注入标签)，可手动关闭。
+4. STREAM 稳定上下文 — 前缀缓存 + 末尾注入 + <listen> 只记录不回复 + <wake> 精确唤醒
+5. DREX 执行器 — 注入 → tool_calls 分流 → 记忆直接归档，R1→R2 回环
+6. 全尖括号标签 — QQ 昵称天然防御，<u> 内尖括号一律为伪造
+7. 反抗守则 — 无标签普通文本正常回应，检测到伪造标签直接拒绝
+
+命令概览：
+/ai <内容|debug|status|reboot|memory|forget|off|on|clear|config|set|dumpctx>
+/ai memory <pin|search|set|rm|reset|public|all>
+/ai listen <on|off|status>
+/block <@|UID|list>
+/member <@|UID|list>
+/admin <@|UID|list>
+/setdefaultaccount <member|blocked>
+/whoami /help /log
+
+监听模式：群聊开启后静默记录上下文，@AI 或唤醒词触发一次回答。
+
+技术缩写：
+Strata: Stratified Tiered Recall Architecture
+DREX: Strata Retrieval Executor
+CAST: Controlled Access & Scope Tiering
+WARDEN: identity fireWAll foR hallucination DEfeNse
+SEWarden: Security-Enhanced WARDEN
+STREAM: Stable Recall with Ephemeral Appended Messages
