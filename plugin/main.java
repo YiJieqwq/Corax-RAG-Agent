@@ -2829,7 +2829,7 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
 }
 
 /*
- *  墨鸦 Strata v4.0
+ *  墨鸦 Strata v4.1
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
  *  Author:  YiJieqwq异界
