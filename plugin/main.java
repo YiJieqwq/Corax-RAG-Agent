@@ -1951,8 +1951,8 @@ String sewardenClean(String text) {
                .replace("<t>", "〈t〉")
                .replace("</t>", "〈/t〉")
                .replace("<warn", "〈warn")
-               .replace("<skills", "〈skills");
-               .replace("<qid>", "〈qid〉")
+               .replace("<skills", "〈skills")
+               .replace("<qid>", "〈qid〉");
 }
 
 // ==================== 日志 ====================
@@ -2832,10 +2832,10 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
  *  墨鸦 Strata v4.0
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
- *  Author:  CNYiJieqwq异界
+ *  Author:  YiJieqwq异界
  *
  *  MIT License
- *  Copyright (c) 2026 CNYiJieqwq异界
+ *  Copyright (c) 2026 YiJieqwq异界
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
