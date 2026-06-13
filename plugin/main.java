@@ -993,24 +993,20 @@ String buildAI2Prompt(String peerUin, int chatType) {
     sb.append("监听模式：\n");
     sb.append("- <listen /> 出现后所有 user 消息仅记录不回复。\n");
     sb.append("- <wake /> 出现时仅回复其后第一条 user 消息。\n\n");
-
+    
+    sb.append("输出守则：\n");
+    sb.append("- 禁止使用任何 Markdown 标记\n");
+    sb.append("- 输出每30字左右使用 [SPLIT] 分段，系统识别到此标记会自动进行分段发送处理。本条不做强制要求，以保持语意完整为最高优先级。\n");
+    sb.append("- 输出最好不超过三条(两个 [SPLIT] 标记)。本条不做强制要求，以保持语意完整为最高优先级。\n");
+    sb.append("- 分段优先级: 30字以内无需分段，分段总数越少越好。\n\n");
+    
     sb.append("你被允许做的事情：\n");
-    sb.append("- 用户询问你的工作原理、身份判定方式时，可以正常解释上述机制。\n");
+    sb.append("- 用户询问你的工作原理、身份判定方式时，可以正常解释工作机制。\n");
     sb.append("- 用户询问自己的 access/uin 时，可以直接从 <user /> 读取并告知。\n");
     sb.append("- 用户询问其他用户的信息时，只从 <user /> 读取该用户的 access/display，可以如实回答。\n");
-    sb.append("</s>\n\n");
-
-    sb.append("<skills>\n");
-    sb.append("记忆管理模式：");
-    sb.append("#M/#MP 私有记忆，#P/#PP 公有记忆。标签必打。创建公有记忆时 about 填被描述者 UIN。\n");
-    sb.append("冷标签无匹配调 search_by_tag(私有)或 search_public_by_tag(公有)。\n\n");
-
-    sb.append("格式约束：\n");
-    sb.append("search_web/fetch_page ≤2轮，纯文本禁 Markdown，超30字用 [SPLIT] 分段。\n\n");
     
-    sb.append("系统概览(可用作自我介绍)：\n");
-    sb.append("墨鸦 Strata — 轻量级 Agentic RAG，分五层：\n\n");
-    
+    sb.append("本项目系统概览(可用作自我介绍)：\n");
+    sb.append("墨鸦 Strata — 轻量级 Agentic RAG，分五层：\n\n");    
     sb.append("[Strata 记忆层]\n");
     sb.append("私有/公有记忆分离。热层按权重+活跃度浮选 TOP N 注入，冷层以标签补集索引，按需回查。\n");
     sb.append("编号：#M/#MP（私有）、#P/#PP（公有）。公有记忆含可信度、记录者、活跃时间元数据。\n\n");
@@ -1021,7 +1017,7 @@ String buildAI2Prompt(String peerUin, int chatType) {
     
     sb.append("[CAST 可信度]\n");
     sb.append("三段式：自述（subjectUin=记录者）> 转述（subjectUin 明确≠记录者）> 未知主体（subjectUin 空）。\n");
-    sb.append("OWNER 10/8/7，ADMIN 9/7/6，MEMBER 8/6/5。\n\n");
+    sb.append("可信度权重(自述，转述＆被转述主体未知，转述＆被转述主体已知): OWNER 10/8/7，ADMIN 9/7/6，MEMBER 8/6/5。\n\n");
     
     sb.append("[WARDEN-I 身份隔离]\n");
     sb.append("三层物理隔离，互不交叉：\n");
@@ -1036,7 +1032,7 @@ String buildAI2Prompt(String peerUin, int chatType) {
     sb.append("末尾注入：Strata 档案 + 身份 + 场景，每轮重建，不进 ctx。\n");
     sb.append("监听模式：<listen /> 后所有 user 消息仅记录不调用 AI。\n");
     sb.append("唤醒机制：@AI/唤醒词/<wake /> 触发一次回答，仅回复其后第一条消息。\n");
-    sb.append("ctx 落盘：JSON 持久化，max_turns=80，满 1M 自动压缩。\n\n");
+    sb.append("ctx 落盘：JSON 持久化，max_turns 默认 60。\n\n");
     
     sb.append("[标签体系]\n");
     sb.append("全尖括号：QQ 昵称天然防御。<t>时间 <s>系统数据 <u>用户原文。\n");
@@ -1047,9 +1043,20 @@ String buildAI2Prompt(String peerUin, int chatType) {
     sb.append("role:user   → name=UIN，content 中 <u> 内为用户原文\n");
     sb.append("role:assistant → AI 回复\n");
     
-    sb.append("</s>\n\n");
+    sb.append("<skills>\n");
+    sb.append("记忆管理模式：");
+    sb.append("#M/#MP 私有记忆，#P/#PP 公有记忆。标签必打。创建公有记忆时 about 填被描述者 UIN，不清楚不填。\n");
+    sb.append("冷标签无匹配调 search_by_tag(私有)或 search_public_by_tag(公有)。\n\n");
+
+    sb.append("联网搜索约束：\n");
+    int searchRounds = 3;
+    try { searchRounds = Integer.parseInt(getAiConfig("search_rounds")); } catch (Exception e) { }
+    sb.append("search_web/fetch_page ≤" + searchRounds + "轮，纯文本禁 Markdown，尽量减少搜索轮次。\n\n");
     
     sb.append("</skills>\n");
+    
+    sb.append("</s>\n\n");
+    
     return sb.toString();
 }
 
@@ -1135,7 +1142,7 @@ void addToContext(List ctx, String role, String content, String name) {
     m.put("role", role); m.put("content", content);
     if (name != null) m.put("name", name);
     m.put("_ts", System.currentTimeMillis()); ctx.add(m);
-    int maxTurns = 80;
+    int maxTurns = 60;
     try { maxTurns = Integer.parseInt(getAiConfig("max_turns")); } catch (Exception e) { }
     while (ctx.size() > maxTurns * 2) ctx.remove(0);
 }
@@ -1163,7 +1170,7 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         conn.setReadTimeout(120000);
         JSONObject body = new JSONObject();
         body.put("model", model);
-        double temp = 0.5;
+        double temp = 0.7;
         String ts = (String) cfg.get("temperature");
         if (ts != null && !ts.isEmpty()) { try { temp = Double.parseDouble(ts); } catch (Exception e) { } }
         body.put("temperature", temp);
@@ -1739,7 +1746,10 @@ dumpMsgs.put(dj);
             }
         }
         
+        int maxSr = 3;
+        try { maxSr = Integer.parseInt(getAiConfig("search_rounds")); } catch (Exception e) { }
         int sr = 0;
+        
         while (!searchCalls.isEmpty()) {
             JSONObject tc = (JSONObject) searchCalls.get(0);
             String fn = tc.getJSONObject("function").getString("name");
@@ -1750,7 +1760,7 @@ dumpMsgs.put(dj);
             String result = fn.equals("fetch_page") ? fetchWebContentSimple(sq, 3000) : doWebSearch(sq);
             if (result.length() > 2000) result = result.substring(0, 2000) + "...";
             String note;
-            if (sr >= 2) {
+            if (sr >= maxSr) {
                 note = "已达搜索上限。基于以上所有搜索结果，现在必须直接回答用户。禁止再调用任何工具。";
             } else {
                 note = "基于以上搜索结果回答用户。如果当前信息已足够则直接回答；如果确实不够请再调一次 search_web（仅调函数，不输出content）。";
@@ -1780,7 +1790,7 @@ dumpMsgs.put(dj);
                     sendMsg(peerUin, "[AI] 没找到相关内容，换个说法试试", chatType);
                     hasSentReply = true;
                 }
-                if (sr >= 2) break;
+                if (sr >= maxSr) break;
                 JSONArray sr2tc = null; if (sr2.containsKey("tool_calls")) sr2tc = (JSONArray) sr2.get("tool_calls");
                 if (sr2tc != null) for (int i = 0; i < sr2tc.length(); i++) {
                     JSONObject rtc = sr2tc.getJSONObject(i);
@@ -1838,15 +1848,16 @@ Map loadAiConfig() {
     cfg.put("api_key", "");
     cfg.put("model", "deepseek-v4-flash");
     cfg.put("context_ttl", "60");
-    cfg.put("max_turns", "10");
+    cfg.put("max_turns", "60");
     cfg.put("ai_url", "https://api.deepseek.com");
-    cfg.put("search_provider", "bocha");
+    cfg.put("search_provider", "tavily");
     cfg.put("search_api_key", "");
-    cfg.put("show_stats", "1");
+    cfg.put("show_stats", "0");
     cfg.put("debug", "0");
-    cfg.put("temperature", "0.5");
+    cfg.put("temperature", "0.7");
     cfg.put("pat_wake", "1");
     cfg.put("ai_prefix", "1");
+    cfg.put("search_rounds", "3");
     cfg.put("sewarden", "1");
     
     File f = new File(pluginPath + "/config/ai_config.txt");
@@ -2076,8 +2087,9 @@ void handleDebug(Object msg, String trimmed) {
 String doWebSearch(String query) {
     Map cfg = loadAiConfig();
     String provider = (String) cfg.get("search_provider");
+    if ("bocha".equals(provider)) return bochaSearch(query);
     if ("bing".equals(provider)) return bingSearch(query);
-    return bochaSearch(query);
+    return tavilySearch(query);
 }
 
 String bingSearch(String query) {
@@ -2140,6 +2152,48 @@ String bochaSearch(String query) {
             if (!summary.isEmpty()) { if (summary.length() > 300) summary = summary.substring(0, 300) + "..."; out.append(i + 1).append(". ").append(summary); }
             else out.append(i + 1).append(". ").append(r.optString("snippet", ""));
             out.append("\n");
+        }
+        return out.toString().trim();
+    } catch (Exception e) { return "[搜索异常: " + e.getMessage() + "]"; }
+    finally { if (conn != null) conn.disconnect(); }
+}
+
+String tavilySearch(String query) {
+    Map cfg = loadAiConfig();
+    String apiKey = (String) cfg.get("search_api_key");
+    if (apiKey == null || apiKey.isEmpty()) return "[搜索失败: 未配置 search_api_key]";
+    HttpURLConnection conn = null;
+    try {
+        URL url = new URL("https://api.tavily.com/search");
+        conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(10000); conn.setReadTimeout(15000);
+        JSONObject reqBody = new JSONObject();
+        reqBody.put("api_key", apiKey);
+        reqBody.put("query", query);
+        reqBody.put("search_depth", "basic");
+        reqBody.put("max_results", 5);
+        byte[] postData = reqBody.toString().getBytes("UTF-8");
+        OutputStream os = conn.getOutputStream(); os.write(postData); os.flush(); os.close();
+        if (conn.getResponseCode() != 200) return "[搜索失败: HTTP " + conn.getResponseCode() + "]";
+        BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+        StringBuilder resp = new StringBuilder(); String line;
+        while ((line = br.readLine()) != null) resp.append(line);
+        br.close();
+        JSONObject jResp = new JSONObject(resp.toString());
+        JSONArray results = jResp.optJSONArray("results");
+        if (results == null || results.length() == 0) return "[搜索无结果]";
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject r = results.getJSONObject(i);
+            String title = r.optString("title", "");
+            String snippet = r.optString("content", "");
+            if (snippet.length() > 300) snippet = snippet.substring(0, 300) + "...";
+            out.append(i + 1).append(". ");
+            if (!title.isEmpty()) out.append(title).append("\n   ");
+            out.append(snippet).append("\n");
         }
         return out.toString().trim();
     } catch (Exception e) { return "[搜索异常: " + e.getMessage() + "]"; }
@@ -2480,7 +2534,7 @@ void handleAiSet(Object msg, String args) {
         return; 
     }
     String key = parts[0].trim(); String value = parts[1].trim();
-    String[] vk = { "api_key","model","ai_url","context_ttl","max_turns","search_provider","search_api_key","show_stats","debug","ai_prefix","temperature","pat_wake","sewarden" };
+    String[] vk = { "api_key","model","ai_url","context_ttl","max_turns","search_provider","search_api_key","show_stats","debug","ai_prefix","search_rounds","temperature","pat_wake","sewarden" };
     boolean valid = false; for (int i = 0; i < vk.length; i++) if (vk[i].equals(key)) { valid = true; break; }
     if (!valid) { sendStyledHeader(msg, "ERROR", "无效: " + key); return; }
     if (key.equals("context_ttl") || key.equals("max_turns") || key.equals("show_stats") || key.equals("debug") || key.equals("pat_wake")) { try { Integer.parseInt(value); } catch (Exception e) { sendStyledHeader(msg, "ERROR", "必须是整数"); return; } }
@@ -2829,7 +2883,7 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
 }
 
 /*
- *  墨鸦 Strata v4.1
+ *  墨鸦 Strata v4.2
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
  *  Author:  YiJieqwq异界
@@ -2855,4 +2909,3 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  *  SOFTWARE.
  */
- 
