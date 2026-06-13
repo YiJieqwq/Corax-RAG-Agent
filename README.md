@@ -24,7 +24,8 @@ Corax-RAG（墨鸦 Strata）是一个运行在 QQ 环境下的轻量级 Agentic 
 ### 依赖
 
 - QFun 插件环境（Android / QQ 机器人框架）
-- DeepSeek API key
+- DeepSeek 或 其他OpenAI兼容格式的 LLM服务 API Key
+- Tavily, Bocha(博查) 或 Bing 的网络搜索 API Key
 
 ### 安装
 
