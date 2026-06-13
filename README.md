@@ -13,7 +13,9 @@ Corax-RAG（墨鸦 Strata）是一个运行在 QQ 环境下的轻量级 Agentic 
 
 ## 开发文档
 
-Document Link: [DevDocs.md](https://github.com/YiJieqwq/Corax-RAG-Agent/blob/main/docs/DevDocs.md)
+开发文档: [DevDocs.md](https://github.com/YiJieqwq/Corax-RAG-Agent/blob/main/docs/DevDocs.md)
+
+更新日志: [CHANGELOG.md](https://github.com/YiJieqwq/Corax-RAG-Agent/blob/main/CHANGELOG.md)
 
 ---
 
@@ -29,7 +31,8 @@ Document Link: [DevDocs.md](https://github.com/YiJieqwq/Corax-RAG-Agent/blob/mai
 1. 下载 `plugin/main.java`，放入 QFun 插件目录（`.../QFun/{QQ号}/plugin/Corax-RAG/`）
 2. 重启 QQ / 触发插件重载
 3. 发送 `/ai set api_key sk-xxx` 配置 API key
-4. 发送 `/ai on` 启用 AI 对话
+4. 发送 `/ai set search_api_key xxx` 配置 搜索API key (可选)
+5. 发送 `/ai on` 启用 AI 对话
 
 ### 基础配置
 
@@ -38,6 +41,7 @@ Document Link: [DevDocs.md](https://github.com/YiJieqwq/Corax-RAG-Agent/blob/mai
 /ai set search_api_key <你的 key>    # 设置搜索 API key
 /ai on                               # 启用当前会话 AI 功能
 /ai listen on                        # 开启监听模式
+/ai reboot <人设文件名称>              # 更换人设(默认加载 陈千语 人设，可自行配置更多人设文件)
 ```
 
 ---
@@ -128,9 +132,9 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 | 私有记忆 | 按 UIN 隔离，仅本人可见 |
 | 公有记忆 | 群内共享，含可信度/记录者/活跃时间 |
 | 记忆编号 | `#M`/`#MP`（私有），`#P`/`#PP`（公有） |
-| 联网搜索 | 支持 Bing 和 Bocha |
+| 联网搜索 | 支持 Tavily，Bing 和 Bocha |
 | 技能系统 | 按需加载，ctx 持久化 |
-| 监听模式 | 只记录不回复，@AI 唤醒 |
+| 监听模式 | 只记录不回复，/ai或唤醒词 唤醒 |
 | SEWarden | 标签逃逸物理防护（默认开启） |
 | 系统白盒 | AI 可向用户解释自身工作原理 |
 
@@ -174,12 +178,13 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 | `api_key` | — | DeepSeek API key |
 | `model` | `deepseek-v4-flash` | 模型 |
 | `context_ttl` | `60` | 对话保留时间（分钟） |
-| `max_turns` | `80` | 最大保留轮数 |
-| `temperature` | `0.5` | 生成温度 |
+| `max_turns` | `60` | 最大保留轮数 |
+| `temperature` | `0.7` | 生成温度 |
 | `sewarden` | `1` | 标签逃逸防护（推荐开启） |
 | `pat_wake` | `1` | 拍一拍唤醒 |
-| `search_provider` | `bocha` | 搜索服务商 |
-| `show_stats` | `1` | 显示 token 统计 |
+| `search_provider` | `tavily` | 搜索服务商 |
+| `search_rounds` | `3` | 最大搜索轮数 |
+| `show_stats` | `0` | 显示 token 统计 |
 
 ---
 
@@ -188,6 +193,7 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 ```
 Corax-RAG-Agent/
 ├── README.md
+├── CHANGELOG.md
 ├── LICENSE
 ├── plugin/
 │   └── main.java              # 核心插件（单文件）
