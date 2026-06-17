@@ -1217,6 +1217,10 @@ void handleAi(Object msg, String prompt) {
     long startTime = System.currentTimeMillis();
     int totalPt = 0; int totalCt = 0; int totalCalls = 0;
     String senderUin = String.valueOf(msg.userUin);
+    // 系统消息保护：UIN 无效时跳过处理
+    if (senderUin == null || senderUin.isEmpty() || senderUin.equals("0") || senderUin.equals("null")) {
+        aiProcessing = false; return;
+    }
     String peerUin = String.valueOf(msg.peerUin);
     if ("null".equals(peerUin) && patPeerUin != null) peerUin = patPeerUin;
     int chatType = msg.type;
@@ -1988,8 +1992,17 @@ long getAccessedAt(long id) {
 }
 
 String getMemberName(int chatType, String peerUin, String uin) {
-    if (chatType == 2) { try { Object mem = getMemberInfo(peerUin, uin); if (mem != null && mem.uinName != null) return mem.uinName; } catch (Exception e) { } }
-    else if (chatType == 1) {
+    // 系统消息保护：UIN 无效时直接返回
+    if (uin == null || uin.isEmpty() || uin.equals("0") || uin.equals("0")) {
+        return "System";
+    }
+    if (chatType == 2) {
+        try {
+            Object mem = getMemberInfo(peerUin, uin);
+            if (mem != null && mem.uinName != null) return mem.uinName;
+        } catch (NullPointerException e) { }
+        catch (Exception e) { }
+    } else if (chatType == 1) {
         try {
             java.util.List list = getAllFriend();
             if (list != null) {
@@ -2651,6 +2664,10 @@ public void onMsg(Object msg) {
     String text = msg.msg;
     if (text == null) return;
     String senderUin = String.valueOf(msg.userUin);
+    // 系统消息保护：UIN 无效时跳过处理
+    if (senderUin == null || senderUin.isEmpty() || senderUin.equals("0") || senderUin.equals("null")) {
+        aiProcessing = false; return;
+    }
     String peerUin = String.valueOf(msg.peerUin);
     int chatType = msg.type;
     String trimmed = text.trim();
@@ -2665,7 +2682,8 @@ public void onMsg(Object msg) {
     }
     if (trimmed.startsWith("/setdefaultaccount")) {
         if (!getRole(senderUin).equals("OWNER")) { sendPermissionDenied(msg); return; }
-        String arg = trimmed.length() > 19 ? trimmed.substring(20).trim() : "";
+        String arg = trimmed.substring(19).trim();
+        if (arg.startsWith("/")) arg = arg.substring(1).trim();
         if (arg.isEmpty() || (!arg.equals("member") && !arg.equals("blocked"))) { sendStyledHeader(msg, "ERROR", "/setdefaultaccount member/blocked"); return; }
         setDefaultAccountConfig(arg);
         sendStyledHeader(msg, "INFO", "已设置: " + arg); return;
@@ -2883,7 +2901,7 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
 }
 
 /*
- *  墨鸦 Strata v4.2
+ *  墨鸦 Strata v4.2.1
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
  *  Author:  YiJieqwq异界
