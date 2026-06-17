@@ -29,7 +29,7 @@ Corax-RAG（墨鸦 Strata）是一个运行在 QQ 环境下的轻量级 Agentic 
 
 ### 安装
 
-1. 下载 `plugin/main.java`，放入 QFun 插件目录（`.../QFun/{QQ号}/plugin/Corax-RAG/`）
+1. 下载 Releases 中的 CI集成包，解压到 QFun 插件目录（`.../QFun/{QQ号}/plugin/`）
 2. 重启 QQ / 触发插件重载
 3. 发送 `/ai set api_key sk-xxx` 配置 API key
 4. 发送 `/ai set search_api_key xxx` 配置 搜索API key (可选)
@@ -75,7 +75,7 @@ Corax-RAG（墨鸦 Strata）是一个运行在 QQ 环境下的轻量级 Agentic 
 
 ### 监听与唤醒
 
-`/ai listen on` 开启后，所有用户消息仅记录不调用 AI。@AI / 唤醒词 / `/ai` 命令触发唤醒，仅回复唤醒后的第一条消息。
+`/ai listen on` 开启后，所有用户消息仅记录不调用 AI。使用 唤醒词 或 `/ai` 命令触发唤醒，仅回复唤醒后的第一条消息。
 
 ---
 
