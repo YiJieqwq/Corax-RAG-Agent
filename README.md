@@ -153,6 +153,9 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 /ai memory search <关键词>        # 搜索记忆
 /ai memory pin <id>               # 置顶/取消置顶
 /ai memory public                 # 查看公有记忆
+/ai memory public set/rm          # 管理公有记忆
+/ai memory all                    # 全部用户记忆（管理员）
+/ai memory reset                  # 清空全部记忆（宿主）
 
 /ai listen on / off / status      # 监听模式控制
 
@@ -166,8 +169,10 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 /ai forget <关键词>               # 按关键词删除记忆
 
 /admin /block /member             # 权限管理
+/setdefaultaccount member/blocked # 默认账户策略
 /whoami                           # 查看自己角色
 /help                             # 帮助
+/log                              # 查看日志
 ```
 
 ---
@@ -178,14 +183,18 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 |----|--------|------|
 | `api_key` | — | DeepSeek API key |
 | `model` | `deepseek-v4-flash` | 模型 |
+| `ai_url` | `https://api.deepseek.com` | API 地址 |
 | `context_ttl` | `60` | 对话保留时间（分钟） |
 | `max_turns` | `60` | 最大保留轮数 |
 | `temperature` | `0.7` | 生成温度 |
 | `sewarden` | `1` | 标签逃逸防护（推荐开启） |
 | `pat_wake` | `1` | 拍一拍唤醒 |
 | `search_provider` | `tavily` | 搜索服务商 |
+| `search_api_key` | — | 搜索 API key |
 | `search_rounds` | `3` | 最大搜索轮数 |
 | `show_stats` | `0` | 显示 token 统计 |
+| `debug` | `0` | 调试模式 |
+| `ai_prefix` | `1` | AI 消息强制 [AI] 前缀 |
 
 ---
 

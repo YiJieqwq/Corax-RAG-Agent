@@ -1,5 +1,5 @@
 
-# 墨鸦 Strata v4.1 — 开发文档
+# 墨鸦 Strata v4.2.1 — 开发文档
 
 ---
 
@@ -265,13 +265,17 @@ CREATE TABLE memories (
 | `api_key` | — | DeepSeek API key |
 | `model` | `deepseek-v4-flash` | 模型名 |
 | `context_ttl` | `60` | 对话保留时间（分钟） |
-| `max_turns` | `80` | 保留最大轮数 |
+| `max_turns` | `60` | 保留最大轮数 |
 | `ai_url` | `https://api.deepseek.com` | API 地址 |
-| `search_provider` | `bocha` | 搜索服务商 |
+| `search_provider` | `tavily` | 搜索服务商 (tavily / bocha / bing) |
 | `search_api_key` | — | 搜索 API key |
-| `temperature` | `0.5` | 生成温度 |
+| `search_rounds` | `3` | 最大搜索轮数 |
+| `temperature` | `0.7` | 生成温度 |
+| `sewarden` | `1` | 标签逃逸防护（推荐开启） |
 | `pat_wake` | `1` | 拍一拍唤醒 |
 | `ai_prefix` | `1` | AI 消息强制 [AI] 前缀 |
+| `show_stats` | `0` | 显示 token 统计 |
+| `debug` | `0` | 调试模式 |
 
 ---
 
@@ -282,6 +286,13 @@ CREATE TABLE memories (
 | `/ai <内容>` | 与 AI 对话 |
 | `/ai listen on/off/status` | 监听模式控制 |
 | `/ai memory` | 查看/管理记忆 |
+| `/ai memory set [tags:x,y] <内容>` | 添加私有记忆 |
+| `/ai memory rm <id>` | 删除记忆 |
+| `/ai memory search <关键词\|tag:x>` | 搜索记忆 |
+| `/ai memory pin <id>` | 置顶/取消置顶 |
+| `/ai memory public [set\|rm]` | 公有记忆管理 |
+| `/ai memory all` | 查看全部用户记忆 (ADMIN/OWNER) |
+| `/ai memory reset` | 清空全部记忆 (OWNER) |
 | `/ai set <key> <value>` | 修改配置 |
 | `/ai config` | 查看配置 |
 | `/ai dumpctx` | 导出完整请求体 |
@@ -309,7 +320,9 @@ CREATE TABLE memories (
 | v2.5 | 引用分离 + 用户消息纯净 |
 | v3.0 | USER→MEMBER + 三段式可信度 + 公有元数据 |
 | v4.0 | 全尖括号标签 + name 纯 UIN + 监听只记录 + 系统概览白盒 |
-| v4.1 | 加入SEWarden |
+| v4.1 | 加入 SEWarden |
+| v4.2 | Tavily 搜索支持 + 可配置搜索轮数 |
+| v4.2.1 | Bug 修复（非文本消息空指针等） |
 
 ---
 
