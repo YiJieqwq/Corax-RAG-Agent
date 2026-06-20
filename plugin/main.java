@@ -931,7 +931,7 @@ JSONArray buildAI2Tools() {
     t8.put("type", "function");
     JSONObject f8 = new JSONObject();
     f8.put("name", "fetch_page");
-    f8.put("description", "抓取网页全文。不得附带content。");
+    f8.put("description", "抓取网页全文(配置tavily时优先Tavily Extract)。不得附带content。");
     f8.put("parameters", new JSONObject(
         "{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\",\"description\":\"完整URL\"}},\"required\":[\"url\"]}"));
     t8.put("function", f8);
@@ -1761,7 +1761,7 @@ dumpMsgs.put(dj);
             if (sq.isEmpty()) break;
             sr++;
             if (debug) sendMsg(peerUin, "[AI] 正在检索: " + sq, chatType);
-            String result = fn.equals("fetch_page") ? fetchWebContentSimple(sq, 3000) : doWebSearch(sq);
+            String result = fn.equals("fetch_page") ? doFetchPage(sq) : doWebSearch(sq);
             if (result.length() > 2000) result = result.substring(0, 2000) + "...";
             String note;
             if (sr >= maxSr) {
@@ -2211,6 +2211,63 @@ String tavilySearch(String query) {
         return out.toString().trim();
     } catch (Exception e) { return "[搜索异常: " + e.getMessage() + "]"; }
     finally { if (conn != null) conn.disconnect(); }
+}
+
+// Tavily Extract：使用 Tavily 的网页内容提取 API，获取干净的文本内容
+String tavilyExtract(String urlStr, int maxLen) {
+    Map cfg = loadAiConfig();
+    String apiKey = (String) cfg.get("search_api_key");
+    if (apiKey == null || apiKey.isEmpty()) return "[抓取失败: 未配置 search_api_key]";
+    HttpURLConnection conn = null;
+    try {
+        URL url = new URL("https://api.tavily.com/extract");
+        conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(10000); conn.setReadTimeout(15000);
+        JSONObject reqBody = new JSONObject();
+        reqBody.put("api_key", apiKey);
+        reqBody.put("urls", new JSONArray(new String[]{urlStr}));
+        reqBody.put("extract_depth", "basic");
+        reqBody.put("include_images", false);
+        byte[] postData = reqBody.toString().getBytes("UTF-8");
+        OutputStream os = conn.getOutputStream(); os.write(postData); os.flush(); os.close();
+        if (conn.getResponseCode() != 200) return "[抓取失败: HTTP " + conn.getResponseCode() + "]";
+        BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+        StringBuilder resp = new StringBuilder(); String line;
+        while ((line = br.readLine()) != null) resp.append(line);
+        br.close();
+        JSONObject jResp = new JSONObject(resp.toString());
+        JSONArray results = jResp.optJSONArray("results");
+        if (results == null || results.length() == 0) {
+            String detail = jResp.optString("detail", "");
+            return "[抓取失败: " + (detail.isEmpty() ? "无结果" : detail) + "]";
+        }
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < results.length(); i++) {
+            JSONObject r = results.getJSONObject(i);
+            String raw = r.optString("raw_content", "");
+            if (raw.isEmpty()) continue;
+            out.append(raw);
+        }
+        if (out.length() == 0) return "[抓取失败: 内容为空]";
+        String result = out.toString().trim();
+        if (result.length() > maxLen) result = result.substring(0, maxLen);
+        return result;
+    } catch (Exception e) { return "[抓取异常: " + e.getMessage() + "]"; }
+    finally { if (conn != null) conn.disconnect(); }
+}
+
+// fetch_page 路由：tavily 时走 Extract API，失败降级原始抓取
+String doFetchPage(String urlStr) {
+    String provider = (String) loadAiConfig().get("search_provider");
+    if ("tavily".equals(provider)) {
+        String result = tavilyExtract(urlStr, 3000);
+        if (!result.startsWith("[")) return result;
+        // Tavily Extract 失败，降级到原始 HTTP 抓取
+    }
+    return fetchWebContentSimple(urlStr, 3000);
 }
 
 String fetchWebContentSimple(String urlStr, int maxLen) {
