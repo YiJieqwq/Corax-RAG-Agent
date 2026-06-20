@@ -31,6 +31,7 @@ static long wakeWordsFileMtime = 0;
 
 static String cachedSkills = null;
 static boolean aiProcessing = false;
+static java.util.Timer reminderTimer = null;
 static Set listenSessions = null;
 static boolean aiReady = false;
 static String lastAssistantMsg = null;
@@ -2950,6 +2951,7 @@ boolean isNumeric(String s) { return s != null && s.matches("[0-9]+"); }
 
 // ==================== 生命周期 ====================
 public void onDestroy() {
+    if (reminderTimer != null) { reminderTimer.cancel(); reminderTimer = null; }
     for (Object key : aiContexts.keySet()) {
         try {
             String[] parts = ((String) key).split("_");
@@ -2993,8 +2995,15 @@ public void onMsg(Object msg) {
         loadAiConfig();
         loadSkills();
         aiReady = true;
+        if (reminderTimer == null) {
+            reminderTimer = new java.util.Timer(true);
+            reminderTimer.scheduleAtFixedRate(new java.util.TimerTask() {
+                public void run() {
+                    try { checkAndFireReminders(); } catch (Exception e) { }
+                }
+            }, 10000, 30000);
+        }
     }
-    try { checkAndFireReminders(); } catch (Exception ignored) { }
     
     String text = msg.msg;
     if (text == null) return;
