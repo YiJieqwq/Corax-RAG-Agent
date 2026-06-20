@@ -931,7 +931,10 @@ JSONArray buildAI2Tools() {
     t8.put("type", "function");
     JSONObject f8 = new JSONObject();
     f8.put("name", "fetch_page");
-    f8.put("description", "抓取网页全文(配置tavily时优先Tavily Extract,advanced深度)。可一次传多个URL用空格分隔(最多5个)批量抓取。不得附带content。");
+    String fetchDesc = "抓取网页全文";
+    if ("tavily".equals(getAiConfig("search_provider"))) fetchDesc += "(Tavily Extract,advanced深度)。可一次传多个URL用空格分隔(最多5个)批量抓取";
+    fetchDesc += "。不得附带content。";
+    f8.put("description", fetchDesc);
     f8.put("parameters", new JSONObject(
         "{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\",\"description\":\"完整URL,多个用空格分隔\"}},\"required\":[\"url\"]}"));
     t8.put("function", f8);
