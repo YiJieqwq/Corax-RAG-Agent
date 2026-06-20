@@ -926,15 +926,15 @@ JSONArray buildAI2Tools() {
         "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\",\"description\":\"搜索词\"}},\"required\":[\"query\"]}"));
     t7.put("function", f7);
     tools.put(t7);
-    // fetch_page — 仅 Tavily 提供 Extract API，bocha/bing 原始抓取无实用价值
+    // fetch_page — 仅 Tavily 提供 Extract API，支持批量URL + advanced深度
     if ("tavily".equals((String) loadAiConfig().get("search_provider"))) {
         JSONObject t8 = new JSONObject();
         t8.put("type", "function");
         JSONObject f8 = new JSONObject();
         f8.put("name", "fetch_page");
-        f8.put("description", "抓取网页全文(Tavily Extract，干净文本)。不得附带content。");
+        f8.put("description", "抓取网页全文(Tavily Extract,advanced深度)。可一次传多个URL用空格分隔(最多5个)批量抓取。不得附带content。");
         f8.put("parameters", new JSONObject(
-            "{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\",\"description\":\"完整URL\"}},\"required\":[\"url\"]}"));
+            "{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\",\"description\":\"完整URL,多个用空格分隔\"}},\"required\":[\"url\"]}"));
         t8.put("function", f8);
         tools.put(t8);
     }
@@ -1775,7 +1775,8 @@ dumpMsgs.put(dj);
             sr++;
             if (debug) sendMsg(peerUin, "[AI] 正在检索: " + sq, chatType);
             String result = fn.equals("fetch_page") ? doFetchPage(sq) : doWebSearch(sq);
-            if (result.length() > 2000) result = result.substring(0, 2000) + "...";
+            int resultCap = fn.equals("fetch_page") ? 6000 : 2000;
+            if (result.length() > resultCap) result = result.substring(0, resultCap) + "...";
             String note;
             if (sr >= maxSr) {
                 note = "已达搜索上限。基于以上所有搜索结果，现在必须直接回答用户。禁止再调用任何工具。";
@@ -2220,7 +2221,8 @@ String tavilySearch(String query) {
 }
 
 // Tavily Extract：使用 Tavily 的网页内容提取 API，获取干净的文本内容
-String tavilyExtract(String urlStr, int maxLen) {
+// 支持一次传入多个 URL（批量抓取），extract_depth=advanced 提取更完整正文
+String tavilyExtract(String[] urls, int maxLen) {
     Map cfg = loadAiConfig();
     String apiKey = (String) cfg.get("search_api_key");
     if (apiKey == null || apiKey.isEmpty()) return "[抓取失败: 未配置 search_api_key]";
@@ -2231,11 +2233,11 @@ String tavilyExtract(String urlStr, int maxLen) {
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setDoOutput(true);
-        conn.setConnectTimeout(10000); conn.setReadTimeout(15000);
+        conn.setConnectTimeout(10000); conn.setReadTimeout(20000);
         JSONObject reqBody = new JSONObject();
         reqBody.put("api_key", apiKey);
-        reqBody.put("urls", new JSONArray(new String[]{urlStr}));
-        reqBody.put("extract_depth", "basic");
+        reqBody.put("urls", new JSONArray(urls));
+        reqBody.put("extract_depth", "advanced");
         reqBody.put("include_images", false);
         byte[] postData = reqBody.toString().getBytes("UTF-8");
         OutputStream os = conn.getOutputStream(); os.write(postData); os.flush(); os.close();
@@ -2250,12 +2252,14 @@ String tavilyExtract(String urlStr, int maxLen) {
             String detail = jResp.optString("detail", "");
             return "[抓取失败: " + (detail.isEmpty() ? "无结果" : detail) + "]";
         }
+        boolean multi = results.length() > 1;
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < results.length(); i++) {
             JSONObject r = results.getJSONObject(i);
             String raw = r.optString("raw_content", "");
             if (raw.isEmpty()) continue;
-            out.append(raw);
+            if (multi) out.append("【").append(r.optString("url", "")).append("】\n");
+            out.append(raw).append("\n");
         }
         if (out.length() == 0) return "[抓取失败: 内容为空]";
         String result = out.toString().trim();
@@ -2265,15 +2269,26 @@ String tavilyExtract(String urlStr, int maxLen) {
     finally { if (conn != null) conn.disconnect(); }
 }
 
-// fetch_page 路由：tavily 时走 Extract API，失败降级原始抓取
+// fetch_page 路由：tavily 时走 Extract API（支持批量），失败降级原始抓取
 String doFetchPage(String urlStr) {
+    String[] urls = urlStr.trim().split("[\\s,]+");
+    if (urls.length > 5) urls = Arrays.copyOfRange(urls, 0, 5); // 单次最多抓取 5 个 URL
     String provider = (String) loadAiConfig().get("search_provider");
     if ("tavily".equals(provider)) {
-        String result = tavilyExtract(urlStr, 3000);
+        String result = tavilyExtract(urls, 6000);
         if (!result.startsWith("[")) return result;
         // Tavily Extract 失败，降级到原始 HTTP 抓取
     }
-    return fetchWebContentSimple(urlStr, 3000);
+    boolean multi = urls.length > 1;
+    int budget = multi ? 6000 / urls.length : 6000;
+    StringBuilder out = new StringBuilder();
+    for (int i = 0; i < urls.length; i++) {
+        if (urls[i].isEmpty()) continue;
+        String c = fetchWebContentSimple(urls[i], budget);
+        if (multi) out.append("【").append(urls[i]).append("】\n");
+        out.append(c).append("\n");
+    }
+    return out.toString().trim();
 }
 
 String fetchWebContentSimple(String urlStr, int maxLen) {
