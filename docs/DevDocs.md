@@ -79,6 +79,7 @@
 | `<s>` | 系统数据 | role:system |
 | `<u>` | 用户原文 | role:user |
 | `<user />` | 身份声明 | role:system |
+| `<refmsgid>` | 引用消息ID | role:user |
 | `<quote>...</quote>` | 引用原文 | role:system |
 | `<listen />` | 监听模式标记 | role:system |
 | `<wake />` | 唤醒点标记 | role:system |
@@ -252,7 +253,7 @@ CREATE TABLE memories (
 | `search_by_tag` | 按标签回查私有记忆 |
 | `search_public_by_tag` | 按标签回查公有记忆 |
 | `search_web` | 联网搜索 |
-| `fetch_page` | 抓取网页全文 |
+| `fetch_page` | 抓取网页全文 (仅Tavily，批量URL支持) |
 | `call_skill` | 调用系统技能 |
 | `toggle_listen` | 开启/关闭监听模式 |
 
@@ -322,7 +323,7 @@ CREATE TABLE memories (
 | v4.0 | 全尖括号标签 + name 纯 UIN + 监听只记录 + 系统概览白盒 |
 | v4.1 | 加入 SEWarden |
 | v4.2 | Tavily 搜索支持 + 可配置搜索轮数 |
-| v4.2.1 | Bug 修复（非文本消息空指针等） |
+| v4.2.1 | Tavily Extract 批量URL+advanced深度 + fetch_page条件注入 + 标签改名(refmsgid/memop/tagresult) + 搜索轮次强制回答 + 协议层3修 + 14项社区Bug修复 |
 
 ---
 

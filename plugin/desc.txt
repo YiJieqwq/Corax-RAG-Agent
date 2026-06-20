@@ -1,6 +1,6 @@
 🦅 墨鸦-Strata v4.2.1 (Security-Enhanced) 🦅
 
-"墨鸦"——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
+\"墨鸦\"——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
 
 项目链接: https://github.com/YiJieqwq/Corax-RAG-Agent
 
@@ -13,16 +13,24 @@
 默认值（可用 /ai set 更改）：
 model = deepseek-v4-flash (可随意修改)
 context_ttl = 60（对话保留一小时）
-max_turns = 60（保留最新60轮，满token自动截断，监听模式变为二倍）
+max_turns = 60（保留最新60轮）
 ai_url = https://api.deepseek.com (同时支持OpenAI)
 search_provider = tavily (同时支持博查＆Bing)
 show_stats = 0（显示token用量，可关闭）
 debug = 0（非开发人员不要开启）
-temperature = 0.7 (更改前确保你知道你在做什么)
+temperature = 0.7
 pat_wake = 1（拍一拍唤醒）
 ai_prefix = 1（AI 消息强制 [AI] 前缀）
-search_rounds = 3 (最大搜索轮次)
-sewarden = 1 (WARDEN增强防护，不建议关闭)
+search_rounds = 3（最大搜索轮次，搜索N轮+最终回答）
+sewarden = 1（WARDEN增强防护，不建议关闭）
+
+近期更新（v4.2.1）：
+- Tavily Extract 网页抓取：支持一次批量抓取多个URL（最多5个），advanced深度提取更完整正文
+- fetch_page 工具仅 Tavily 可用（bocha/bing 不暴露）
+- 搜索最终轮物理封堵工具调用，确保输出结果
+- 协议层标签重命名：<qid>→<refmsgid>、<mop>→<memop>、<hit>→<tagresult>
+- 被引用原文 SEWarden 清洗、系统提示词 <qid> 解释、</s> 闭合
+- 14项社区Bug修复（ctx顺序、连接泄漏、overwrite SQL等）
 
 核心技术：
 1. Strata 热冷分层 — #M/#P 编号，公有记忆含可信度/记录者/活跃时间
