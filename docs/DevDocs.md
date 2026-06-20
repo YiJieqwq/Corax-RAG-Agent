@@ -1,5 +1,5 @@
 
-# 墨鸦 Strata v4.3.1 — 开发文档
+# 墨鸦 Strata v4.3.2 — 开发文档
 
 ---
 
@@ -325,7 +325,7 @@ CREATE TABLE memories (
 | v4.0 | 全尖括号标签 + name 纯 UIN + 监听只记录 + 系统概览白盒 |
 | v4.1 | 加入 SEWarden |
 | v4.2 | Tavily 搜索支持 + 可配置搜索轮数 |
-| v4.3.1 | v4.3.0 内容 + search_memory/search_public_memory 工具：AI 可按关键词模糊搜索记忆内容 |
+| v4.3.2 | v4.3.0 内容 + search_memory/search_public_memory 工具：AI 可按关键词模糊搜索记忆内容 |
 
 ---
 

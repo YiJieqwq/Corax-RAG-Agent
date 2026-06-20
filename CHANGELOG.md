@@ -1,5 +1,5 @@
 # Changelog
-## v4.3.1
+## v4.3.2
 ### Features
 - Enhance Tavily Extract (fetch_page): batch-extract up to 5 URLs, advanced depth, 6000 char limit (thanks @Shixiaoshi0417)
 - fetch_page tool only exposed when search_provider=tavily
