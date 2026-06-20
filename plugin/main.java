@@ -252,10 +252,10 @@ void setDefaultAccountConfig(String type) {
 }
 
 boolean canUseAi(String uin) {
-    if (getRole(uin).equals("BLOCKED")) return false;
-    if (uin.equals(myUin)) return true;
     String role = getRole(uin);
-    if (role.equals("ADMIN")) return true;
+    if (role.equals("BLOCKED")) return false;
+    if (uin.equals(myUin)) return true;
+    if (role.equals("ADMIN") || role.equals("OWNER")) return true;
     if (getDefaultAccount().equals("member")) return true;
     Set whitelist = readStringSet(pluginPath + "/config/members.txt");
     return whitelist.contains(uin);
@@ -1210,6 +1210,7 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         } else { result.put("prompt_tokens", 0); result.put("completion_tokens", 0); }
         return result;
     } catch (Exception e) { log("error.txt", "callAI: " + e.getMessage()); return null; }
+    finally { if (conn != null) conn.disconnect(); }
 }
 
 // ==================== handleAi v4.0 Strata ====================
@@ -1275,7 +1276,44 @@ void handleAi(Object msg, String prompt) {
         handleAiMemory(msg, trimmed.startsWith("memory ") ? trimmed.substring(7).trim() : ""); return;
     }
     if (trimmed.startsWith("forget ")) { handleAiForget(msg, trimmed.substring(7).trim()); return; }
-    
+
+    // 提前解析引用信息，供 dumpctx 和后续流程使用
+    try {
+        Object msgData = msg.data;
+        if (msgData != null) {
+            try {
+                java.util.List elements = (java.util.List) msgData.getClass()
+                    .getDeclaredField("elements")
+                    .get(msgData);
+                if (elements != null) {
+                    for (int ei = 0; ei < elements.size(); ei++) {
+                        Object el = elements.get(ei);
+                        java.lang.reflect.Field rf = el.getClass().getDeclaredField("replyElement"); rf.setAccessible(true);
+                        Object re = rf.get(el);
+                        if (re != null) {
+                            String ruin = "";
+                            try { java.lang.reflect.Field sf = re.getClass().getDeclaredField("senderUin"); sf.setAccessible(true); Object su = sf.get(re); if (su != null && !su.toString().isEmpty()) ruin = su.toString(); } catch (Exception ex2) { }
+                            quotedUin = ruin;
+                            try {
+                                java.lang.reflect.Field sf2 = re.getClass().getDeclaredField("sourceMsgId");
+                                sf2.setAccessible(true);
+                                Object smi = sf2.get(re);
+                                if (smi != null && !smi.toString().isEmpty()) quotedMsgId = smi.toString();
+                            } catch (Exception ex3) { }
+                            try {
+                                java.lang.reflect.Field sf = re.getClass().getDeclaredField("sourceMsgText");
+                                sf.setAccessible(true);
+                                Object src = sf.get(re);
+                                if (src != null && !src.toString().isEmpty()) { quotedText = src.toString(); }
+                            } catch (Exception ex2) { }
+                            break;
+                        }
+                    }
+                }
+           } catch (Exception ignored) { }
+        }
+    } catch (Exception ignored) { }
+
     if (trimmed.equals("listen") || trimmed.equals("listen on") || trimmed.equals("listen off") || trimmed.equals("listen status")) {
         if (!userRole.equals("ADMIN") && !userRole.equals("OWNER")) { sendPermissionDenied(msg); return; }
         String key = peerUin + "_" + chatType;
@@ -1369,42 +1407,6 @@ dumpMsgs.put(dj);
         sendStyledHeader(msg, "ERROR", "AI 未启用"); aiProcessing = false; return;
     }
     getDb(); List ctx = getAiContext(peerUin, chatType);
-    quotedUin = "";
-    try {
-        Object msgData = msg.data;
-        if (msgData != null) {
-            try {
-                java.util.List elements = (java.util.List) msgData.getClass()
-                    .getDeclaredField("elements")
-                    .get(msgData);
-                if (elements != null) {
-                    for (int ei = 0; ei < elements.size(); ei++) {
-                        Object el = elements.get(ei);
-                        java.lang.reflect.Field rf = el.getClass().getDeclaredField("replyElement"); rf.setAccessible(true);
-                        Object re = rf.get(el);
-                        if (re != null) {
-                            String ruin = "";
-                            try { java.lang.reflect.Field sf = re.getClass().getDeclaredField("senderUin"); sf.setAccessible(true); Object su = sf.get(re); if (su != null && !su.toString().isEmpty()) ruin = su.toString(); } catch (Exception ex2) { }
-                            quotedUin = ruin;
-                            try {
-                                java.lang.reflect.Field sf2 = re.getClass().getDeclaredField("sourceMsgId"); 
-                                sf2.setAccessible(true);
-                                Object smi = sf2.get(re);
-                                if (smi != null && !smi.toString().isEmpty()) quotedMsgId = smi.toString();
-                            } catch (Exception ex3) { }
-                            try {
-                                java.lang.reflect.Field sf = re.getClass().getDeclaredField("sourceMsgText"); 
-                                sf.setAccessible(true);
-                                Object src = sf.get(re);
-                                if (src != null && !src.toString().isEmpty()) { quotedText = src.toString(); }
-                            } catch (Exception ex2) { }
-                            break;
-                        }
-                    }
-                }
-           } catch (Exception ignored) { } 
-        }
-    } catch (Exception ignored) { }
 
     String atInfo = "";
     try {
@@ -1537,7 +1539,11 @@ dumpMsgs.put(dj);
     }
 
     boolean hasSentReply = false; boolean isFirstReply = true;
-    
+
+    // ctx 先存 user + R1，保证历史顺序正确（R2 在后面追加）
+    addToContext(ctx, "user", "<t>" + getCurrentTime() + "</t><u>" + prompt + "</u>", senderUin);
+    if (!ai2Content.isEmpty()) addToContext(ctx, "assistant", ai2Content, null);
+
     if (!ai2Content.isEmpty()) {
         String[] segs = ai2Content.split("\\[SPLIT\\]");
         for (int si = 0; si < segs.length; si++) {
@@ -1827,15 +1833,6 @@ dumpMsgs.put(dj);
     }
     if (finalMsg.length() > 0) sendMsg(peerUin, finalMsg.toString(), chatType);
 
-    // v3.0: 精简 ctx 存储（带注解格式）
-    String sceneTag = chatType == 2 ? "[群:" + peerUin + "]" : "[私聊]";
-    addToContext(ctx, "user",
-    "<t>" + getCurrentTime() + "</t><u>" + prompt + "</u>",
-    senderUin);
-    if (!ai2Content.isEmpty()) {
-        addToContext(ctx, "assistant", ai2Content, null);
-    }
-    
     // v3.0: ctx 落盘
     saveCtxToDisk(peerUin, chatType);
     writeLog(senderUin, "/ai: " + trimmed);
@@ -1994,7 +1991,7 @@ long getAccessedAt(long id) {
 
 String getMemberName(int chatType, String peerUin, String uin) {
     // 系统消息保护：UIN 无效时直接返回
-    if (uin == null || uin.isEmpty() || uin.equals("0") || uin.equals("0")) {
+    if (uin == null || uin.isEmpty() || uin.equals("0") || uin.equals("null")) {
         return "System";
     }
     if (chatType == 2) {
@@ -2332,23 +2329,27 @@ void executeMemoryCall(JSONObject tc, String fname, String senderUin, String use
         } else if (fname.equals("overwrite_memory")) {
             int id = getToolArgInt(tc, "id"); String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags");
             if (id <= 0 || content.isEmpty()) return;
-            int oldW = 1;
+            int oldW = 1; String origSubject = senderUin;
             Cursor c = null;
-            try { c = getDb().rawQuery("SELECT weight FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) oldW = c.getInt(0); } catch (Exception e) { }
+            try { c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) { oldW = c.getInt(0); String s = c.getString(1); if (s != null && !s.isEmpty()) origSubject = s; } } catch (Exception e) { }
             finally { if (c != null) c.close(); }
             deleteMemoryById(id, senderUin, userRole);
-            storeMemory(senderUin, content, tags, "private", senderUin);
-            getDb().execSQL("UPDATE memories SET weight=" + (oldW + 1) + " WHERE uin='" + senderUin + "' AND scope='private' ORDER BY id DESC LIMIT 1");
+            storeMemory(senderUin, content, tags, "private", origSubject);
+            Cursor last = null;
+            try { last = getDb().rawQuery("SELECT id FROM memories WHERE uin=? AND scope='private' ORDER BY id DESC LIMIT 1", new String[]{senderUin}); if (last.moveToFirst()) { long lastId = last.getLong(0); getDb().execSQL("UPDATE memories SET weight=? WHERE id=?", new Object[]{oldW + 1, lastId}); } } catch (Exception e) { }
+            finally { if (last != null) last.close(); }
         } else if (fname.equals("overwrite_public_memory")) {
             int id = getToolArgInt(tc, "id"); String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags");
             if (id <= 0 || content.isEmpty()) return;
-            int oldW = 1;
+            int oldW = 1; String origSubject = senderUin;
             Cursor c = null;
-            try { c = getDb().rawQuery("SELECT weight FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) oldW = c.getInt(0); } catch (Exception e) { }
+            try { c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) { oldW = c.getInt(0); String s = c.getString(1); if (s != null && !s.isEmpty()) origSubject = s; } } catch (Exception e) { }
             finally { if (c != null) c.close(); }
             deleteMemoryById(id, senderUin, userRole);
-            storeMemory(senderUin, content, tags, "public", senderUin);
-getDb().execSQL("UPDATE memories SET weight=" + (oldW + 1) + " WHERE scope='public' ORDER BY id DESC LIMIT 1");
+            storeMemory(senderUin, content, tags, "public", origSubject);
+            Cursor last = null;
+            try { last = getDb().rawQuery("SELECT id FROM memories WHERE scope='public' ORDER BY id DESC LIMIT 1", null); if (last.moveToFirst()) { long lastId = last.getLong(0); getDb().execSQL("UPDATE memories SET weight=? WHERE id=?", new Object[]{oldW + 1, lastId}); } } catch (Exception e) { }
+            finally { if (last != null) last.close(); }
         } else if (fname.equals("delete_memory")) { int id = getToolArgInt(tc, "id"); if (id > 0) deleteMemoryById(id, senderUin, userRole); }
     } catch (Exception e) { log("error.txt", "execMem: " + e.getMessage()); }
 }
@@ -2632,7 +2633,7 @@ void handleAiConfig(Object msg) {
     if (!requireAdminOrOwner(msg)) return;
     Map cfg = loadAiConfig();
     StringBuilder sb = new StringBuilder("[AI 配置]\n");
-    String[] keys = { "model","api_key","ai_url","context_ttl","max_turns","search_provider","search_api_key","show_stats","debug","ai_prefix","temperature" };
+    String[] keys = { "model","api_key","ai_url","context_ttl","max_turns","search_provider","search_api_key","search_rounds","show_stats","debug","ai_prefix","temperature","pat_wake","sewarden" };
     for (int i = 0; i < keys.length; i++) { String k = keys[i]; String v = (String) cfg.get(k); if (v == null) v = ""; if (k.contains("api_key") && v.length() >= 8) v = maskApiKey(v); sb.append(k).append(" = ").append(v).append("\n"); }
     sb.append("default_account = ").append(getDefaultAccount()).append("\n");
     String persona = loadPersona(); sb.append("人设 = ").append(getActivePersona()).append(persona.isEmpty() ? " (未)" : " (" + persona.length() + "字符)").append("\n");
@@ -2653,7 +2654,7 @@ String maskApiKey(String key) {
     return key.substring(0, 4) + "****" + key.substring(key.length() - 4);
 }
 
-int getMemoryCount(String uin, String realUin) {
+int getMemoryCount(String uin) {
     Cursor c = null;
     try { c = getDb().rawQuery("SELECT COUNT(*) FROM memories WHERE uin=? AND scope='private'", new String[]{uin}); if (c.moveToFirst()) return c.getInt(0); } catch (Exception e) { }
     finally { if (c != null) c.close(); }
@@ -2693,9 +2694,14 @@ boolean isNumeric(String s) { return s != null && s.matches("[0-9]+"); }
 
 // ==================== 生命周期 ====================
 public void onDestroy() {
+    for (Object key : aiContexts.keySet()) {
+        try {
+            String[] parts = ((String) key).split("_");
+            if (parts.length == 2) saveCtxToDisk(parts[0], Integer.parseInt(parts[1]));
+        } catch (Exception ignored) { }
+    }
     aiContexts.clear();
     closeSharedDb();
-    new Handler(Looper.getMainLooper()).removeCallbacks(this::closeSharedDb);
 }
 
 // ==================== 拍一拍 ====================
@@ -2855,7 +2861,8 @@ public void onMsg(Object msg) {
         m4.put("content", "<t>" + getCurrentTime() + "</t><u>" + trimmed + "</u>");
         m4.put("_ts", System.currentTimeMillis());
         lctx.add(m4);
-        
+
+        saveCtxToDisk(peerUin, chatType);
         return;
     }
     // 唤醒词路由
@@ -2868,13 +2875,13 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
     String cmd = tokens[0];
     if (cmd.equals("/whoami")) {
         String role = getRole(senderUin);
-        sendStyledHeader(msg, "INFO", "角色: " + role + "\n记忆: " + getMemoryCount(senderUin, senderUin) + " 条\n默认账户: " + getDefaultAccount());
+        sendStyledHeader(msg, "INFO", "角色: " + role + "\n记忆: " + getMemoryCount(senderUin) + " 条\n默认账户: " + getDefaultAccount());
         return;
     }
     if (cmd.equals("/help")) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
-        h.append("墨鸦 v3.0 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
+        h.append("墨鸦 v4.2.1 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
         if (role.equals("ADMIN") || role.equals("OWNER")) h.append("/ai set / config / off / on / clear\n");
         if (role.equals("OWNER")) h.append("/setdefaultaccount\n");
         h.append("\n墨鸦-Strata | 轻量级 Agentic RAG");
