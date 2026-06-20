@@ -31,7 +31,7 @@ static long wakeWordsFileMtime = 0;
 
 static String cachedSkills = null;
 static boolean aiProcessing = false;
-static java.util.Timer reminderTimer = null;
+static Handler reminderHandler = null;
 static Set listenSessions = null;
 static boolean aiReady = false;
 static String lastAssistantMsg = null;
@@ -2500,31 +2500,53 @@ long storeReminder(String uin, String peerUin, int chatType, String content, lon
         cv.put("remind_at", remindAt);
         cv.put("created_at", System.currentTimeMillis());
         cv.put("fired", 0);
-        return getDb().insert("reminders", null, cv);
+        long id = getDb().insert("reminders", null, cv);
+        if (id > 0) scheduleReminder(id, remindAt);
+        return id;
     } catch (Exception e) { log("error.txt", "storeReminder: " + e.getMessage()); return -1; }
 }
 
-void checkAndFireReminders() {
+void scheduleReminder(long id, long remindAt) {
+    if (reminderHandler == null) reminderHandler = new Handler(Looper.getMainLooper());
+    long delay = remindAt - System.currentTimeMillis();
+    if (delay < 0) delay = 0;
+    reminderHandler.postDelayed(new Runnable() {
+        public void run() { fireReminder(id); }
+    }, delay);
+}
+
+void fireReminder(long id) {
     Cursor c = null;
     try {
         c = getDb().rawQuery(
-            "SELECT id, uin, peer_uin, chat_type, content FROM reminders WHERE fired=0 AND remind_at<=?",
-            new String[]{String.valueOf(System.currentTimeMillis())});
-        while (c.moveToNext()) {
-            long id = c.getLong(0);
-            String uin = c.getString(1);
-            String peerUin = c.getString(2);
-            int chatType = c.getInt(3);
-            String content = c.getString(4);
+            "SELECT uin, peer_uin, chat_type, content FROM reminders WHERE id=? AND fired=0",
+            new String[]{String.valueOf(id)});
+        if (c.moveToFirst()) {
+            String uin = c.getString(0);
+            String peerUin = c.getString(1);
+            int chatType = c.getInt(2);
+            String content = c.getString(3);
             String prefix = "1".equals(getAiConfig("ai_prefix")) ? "[AI] " : "";
             sendMsg(peerUin, prefix + "⏰ 提醒 @" + getMemberName(chatType, peerUin, uin) + "：" + content, chatType);
             ContentValues cv = new ContentValues();
             cv.put("fired", 1);
             getDb().update("reminders", cv, "id=?", new String[]{String.valueOf(id)});
         }
-    } catch (Exception e) { log("error.txt", "checkReminders: " + e.getMessage()); }
+    } catch (Exception e) { log("error.txt", "fireReminder: " + e.getMessage()); }
     finally { if (c != null) c.close(); }
 }
+
+void loadPendingReminders() {
+    Cursor c = null;
+    try {
+        c = getDb().rawQuery("SELECT id, remind_at FROM reminders WHERE fired=0", null);
+        while (c.moveToNext()) {
+            scheduleReminder(c.getLong(0), c.getLong(1));
+        }
+    } catch (Exception e) { }
+    finally { if (c != null) c.close(); }
+}
+
 
 List getPendingReminders(String uin) {
     List results = new ArrayList();
@@ -2951,7 +2973,7 @@ boolean isNumeric(String s) { return s != null && s.matches("[0-9]+"); }
 
 // ==================== 生命周期 ====================
 public void onDestroy() {
-    if (reminderTimer != null) { reminderTimer.cancel(); reminderTimer = null; }
+    if (reminderHandler != null) { reminderHandler.removeCallbacksAndMessages(null); reminderHandler = null; }
     for (Object key : aiContexts.keySet()) {
         try {
             String[] parts = ((String) key).split("_");
@@ -2995,14 +3017,7 @@ public void onMsg(Object msg) {
         loadAiConfig();
         loadSkills();
         aiReady = true;
-        if (reminderTimer == null) {
-            reminderTimer = new java.util.Timer(true);
-            reminderTimer.scheduleAtFixedRate(new java.util.TimerTask() {
-                public void run() {
-                    try { checkAndFireReminders(); } catch (Exception e) { }
-                }
-            }, 10000, 30000);
-        }
+        loadPendingReminders();
     }
     
     String text = msg.msg;
