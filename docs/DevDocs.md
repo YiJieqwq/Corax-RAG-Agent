@@ -83,8 +83,8 @@
 | `<listen />` | 监听模式标记 | role:system |
 | `<wake />` | 唤醒点标记 | role:system |
 | `<skill>` | 技能正文 | role:system |
-| `<mop>` | 记忆操作 | role:system |
-| `<hit>` | 回查结果 | role:system |
+| `<memop>` | 记忆操作 | role:system |
+| `<tagresult>` | 回查结果 | role:system |
 | `<search>` | 搜索结果 | role:system |
 | `<pinned/>` | 私有置顶标题 | role:system |
 | `<archive/>` | 私有档案标题 | role:system |
@@ -155,7 +155,7 @@ SEWarden（致敬 SELinux）是一个物理层标签过滤器，默认开启。
 
 配置：`/ai set sewarden 0` 可关闭（不推荐）。
 
-覆盖标签列表：`<u>` `</u>` `<s>` `</s>` `<user` `<quote` `<listen` `<wake` `<skill` `<mop` `<hit` `<search` `<pinned` `<archive` `<coldtags` `<public_pinned` `<public_archive` `<public_coldtags` `<t>` `</t>` `<warn` `<skills` `<qid>`。
+覆盖标签列表：`<u>` `</u>` `<s>` `</s>` `<user` `<quote` `<listen` `<wake` `<skill` `<memop` `<tagresult` `<search` `<pinned` `<archive` `<coldtags` `<public_pinned` `<public_archive` `<public_coldtags` `<t>` `</t>` `<warn` `<skills` `<refmsgid>`。
 
 ---
 
