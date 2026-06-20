@@ -24,3 +24,4 @@
 - Fix onDestroy: save all contexts to disk before clearing, remove invalid removeCallbacks
 - Fix listen mode: add saveCtxToDisk call after recording messages to persist listen-mode context
 - Remove unused realUin parameter from getMemoryCount
+- Enhance Tavily Extract (fetch_page): batch-extract up to 5 URLs in one call, upgrade extract_depth basic→advanced, raise fetched content limit 3000→6000 chars (thanks @Shixiaoshi0417)
