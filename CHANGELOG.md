@@ -7,3 +7,7 @@
 ## v4.2.1
 ### Features
 - fix some bugs
+
+## Unreleased
+### Features
+- Enhance Tavily Extract (fetch_page): batch-extract up to 5 URLs in one call, upgrade extract_depth basic→advanced, raise fetched content limit 3000→6000 chars
