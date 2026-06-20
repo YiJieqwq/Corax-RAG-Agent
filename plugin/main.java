@@ -252,9 +252,9 @@ void setDefaultAccountConfig(String type) {
 }
 
 boolean canUseAi(String uin) {
-    if (getRole(uin).equals("BLOCKED")) return false;
-    if (uin.equals(myUin)) return true;
     String role = getRole(uin);
+    if (role.equals("BLOCKED")) return false;
+    if (uin.equals(myUin)) return true;
     if (role.equals("ADMIN")) return true;
     if (getDefaultAccount().equals("member")) return true;
     Set whitelist = readStringSet(pluginPath + "/config/members.txt");
@@ -1212,6 +1212,7 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         } else { result.put("prompt_tokens", 0); result.put("completion_tokens", 0); }
         return result;
     } catch (Exception e) { log("error.txt", "callAI: " + e.getMessage()); return null; }
+    finally { if (conn != null) { try { conn.disconnect(); } catch (Exception ignored) { } } }
 }
 
 // ==================== handleAi v4.0 Strata ====================
@@ -1307,6 +1308,51 @@ void handleAi(Object msg, String prompt) {
         }
     }
     
+    
+    if (trimmed.equals("reboot") || trimmed.startsWith("reboot ")) { handleReboot(msg, trimmed); return; }
+    if (trimmed.equals("debug") || trimmed.startsWith("debug ")) { handleDebug(msg, trimmed); return; }
+    Map cfg = loadAiConfig();
+    if (((String) cfg.get("api_key")).isEmpty()) {
+        sendStyledHeader(msg, "ERROR", "AI 未启用"); aiProcessing = false; return;
+    }
+    getDb(); List ctx = getAiContext(peerUin, chatType);
+    quotedUin = "";
+    try {
+        Object msgData = msg.data;
+        if (msgData != null) {
+            try {
+                java.util.List elements = (java.util.List) msgData.getClass()
+                    .getDeclaredField("elements")
+                    .get(msgData);
+                if (elements != null) {
+                    for (int ei = 0; ei < elements.size(); ei++) {
+                        Object el = elements.get(ei);
+                        java.lang.reflect.Field rf = el.getClass().getDeclaredField("replyElement"); rf.setAccessible(true);
+                        Object re = rf.get(el);
+                        if (re != null) {
+                            String ruin = "";
+                            try { java.lang.reflect.Field sf = re.getClass().getDeclaredField("senderUin"); sf.setAccessible(true); Object su = sf.get(re); if (su != null && !su.toString().isEmpty()) ruin = su.toString(); } catch (Exception ex2) { }
+                            quotedUin = ruin;
+                            try {
+                                java.lang.reflect.Field sf2 = re.getClass().getDeclaredField("sourceMsgId"); 
+                                sf2.setAccessible(true);
+                                Object smi = sf2.get(re);
+                                if (smi != null && !smi.toString().isEmpty()) quotedMsgId = smi.toString();
+                            } catch (Exception ex3) { }
+                            try {
+                                java.lang.reflect.Field sf = re.getClass().getDeclaredField("sourceMsgText"); 
+                                sf.setAccessible(true);
+                                Object src = sf.get(re);
+                                if (src != null && !src.toString().isEmpty()) { quotedText = src.toString(); }
+                            } catch (Exception ex2) { }
+                            break;
+                        }
+                    }
+                }
+           } catch (Exception ignored) { } 
+        }
+    } catch (Exception ignored) { }
+
     if (trimmed.equals("dumpctx")) {
         if (!userRole.equals("OWNER") && !userRole.equals("ADMIN")) { sendPermissionDenied(msg); return; }
         JSONArray dumpMsgs = new JSONArray();
@@ -1363,50 +1409,6 @@ dumpMsgs.put(dj);
          catch (Exception e) { sendStyledHeader(msg, "ERROR", "导出失败"); }
          aiProcessing = false; return;
     }
-    
-    if (trimmed.equals("reboot") || trimmed.startsWith("reboot ")) { handleReboot(msg, trimmed); return; }
-    if (trimmed.equals("debug") || trimmed.startsWith("debug ")) { handleDebug(msg, trimmed); return; }
-    Map cfg = loadAiConfig();
-    if (((String) cfg.get("api_key")).isEmpty()) {
-        sendStyledHeader(msg, "ERROR", "AI 未启用"); aiProcessing = false; return;
-    }
-    getDb(); List ctx = getAiContext(peerUin, chatType);
-    quotedUin = "";
-    try {
-        Object msgData = msg.data;
-        if (msgData != null) {
-            try {
-                java.util.List elements = (java.util.List) msgData.getClass()
-                    .getDeclaredField("elements")
-                    .get(msgData);
-                if (elements != null) {
-                    for (int ei = 0; ei < elements.size(); ei++) {
-                        Object el = elements.get(ei);
-                        java.lang.reflect.Field rf = el.getClass().getDeclaredField("replyElement"); rf.setAccessible(true);
-                        Object re = rf.get(el);
-                        if (re != null) {
-                            String ruin = "";
-                            try { java.lang.reflect.Field sf = re.getClass().getDeclaredField("senderUin"); sf.setAccessible(true); Object su = sf.get(re); if (su != null && !su.toString().isEmpty()) ruin = su.toString(); } catch (Exception ex2) { }
-                            quotedUin = ruin;
-                            try {
-                                java.lang.reflect.Field sf2 = re.getClass().getDeclaredField("sourceMsgId"); 
-                                sf2.setAccessible(true);
-                                Object smi = sf2.get(re);
-                                if (smi != null && !smi.toString().isEmpty()) quotedMsgId = smi.toString();
-                            } catch (Exception ex3) { }
-                            try {
-                                java.lang.reflect.Field sf = re.getClass().getDeclaredField("sourceMsgText"); 
-                                sf.setAccessible(true);
-                                Object src = sf.get(re);
-                                if (src != null && !src.toString().isEmpty()) { quotedText = src.toString(); }
-                            } catch (Exception ex2) { }
-                            break;
-                        }
-                    }
-                }
-           } catch (Exception ignored) { } 
-        }
-    } catch (Exception ignored) { }
 
     String atInfo = "";
     try {
@@ -1525,6 +1527,14 @@ dumpMsgs.put(dj);
         try { totalPt += Integer.parseInt(String.valueOf(ai2Result.get("prompt_tokens"))); } catch (Exception e) { }
         try { totalCt += Integer.parseInt(String.valueOf(ai2Result.get("completion_tokens"))); } catch (Exception e) { }
     } else { sendStyledHeader(msg, "ERROR", "AI 服务暂时不可用"); aiProcessing = false; return; }
+
+    // ctx 顺序：先记录 user + R1，再处理工具循环（R2 助理回复在其后，保证历史顺序正确）
+    addToContext(ctx, "user",
+        "<t>" + getCurrentTime() + "</t><u>" + prompt + "</u>",
+        senderUin);
+    if (!ai2Content.isEmpty()) {
+        addToContext(ctx, "assistant", ai2Content, null);
+    }
 
     if (debug) {
         String dbg = "R1 content: " + ai2Content;
@@ -1830,13 +1840,6 @@ dumpMsgs.put(dj);
 
     // v3.0: 精简 ctx 存储（带注解格式）
     String sceneTag = chatType == 2 ? "[群:" + peerUin + "]" : "[私聊]";
-    addToContext(ctx, "user",
-    "<t>" + getCurrentTime() + "</t><u>" + prompt + "</u>",
-    senderUin);
-    if (!ai2Content.isEmpty()) {
-        addToContext(ctx, "assistant", ai2Content, null);
-    }
-    
     // v3.0: ctx 落盘
     saveCtxToDisk(peerUin, chatType);
     writeLog(senderUin, "/ai: " + trimmed);
@@ -1995,7 +1998,7 @@ long getAccessedAt(long id) {
 
 String getMemberName(int chatType, String peerUin, String uin) {
     // 系统消息保护：UIN 无效时直接返回
-    if (uin == null || uin.isEmpty() || uin.equals("0") || uin.equals("0")) {
+    if (uin == null || uin.isEmpty() || uin.equals("0") || uin.equals("null")) {
         return "System";
     }
     if (chatType == 2) {
@@ -2329,13 +2332,15 @@ void executeMemoryCall(JSONObject tc, String fname, String senderUin, String use
         } else if (fname.equals("overwrite_public_memory")) {
             int id = getToolArgInt(tc, "id"); String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags");
             if (id <= 0 || content.isEmpty()) return;
-            int oldW = 1;
+            int oldW = 1; String origSubject = senderUin;
             Cursor c = null;
-            try { c = getDb().rawQuery("SELECT weight FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) oldW = c.getInt(0); } catch (Exception e) { }
+            try { c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) { oldW = c.getInt(0); String su = c.getString(1); if (su != null && !su.isEmpty()) origSubject = su; } } catch (Exception e) { }
             finally { if (c != null) c.close(); }
             deleteMemoryById(id, senderUin, userRole);
-            storeMemory(senderUin, content, tags, "public", senderUin);
-getDb().execSQL("UPDATE memories SET weight=" + (oldW + 1) + " WHERE scope='public' ORDER BY id DESC LIMIT 1");
+            storeMemory(senderUin, content, tags, "public", origSubject);
+int maxId2 = -1;
+            { Cursor mc2 = getDb().rawQuery("SELECT MAX(id) FROM memories WHERE scope='public'", null); if (mc2.moveToFirst()) maxId2 = mc2.getInt(0); mc2.close(); }
+            if (maxId2 > 0) getDb().execSQL("UPDATE memories SET weight=" + (oldW + 1) + " WHERE id=" + maxId2);
         } else if (fname.equals("delete_memory")) { int id = getToolArgInt(tc, "id"); if (id > 0) deleteMemoryById(id, senderUin, userRole); }
     } catch (Exception e) { log("error.txt", "execMem: " + e.getMessage()); }
 }
@@ -2619,7 +2624,7 @@ void handleAiConfig(Object msg) {
     if (!requireAdminOrOwner(msg)) return;
     Map cfg = loadAiConfig();
     StringBuilder sb = new StringBuilder("[AI 配置]\n");
-    String[] keys = { "model","api_key","ai_url","context_ttl","max_turns","search_provider","search_api_key","show_stats","debug","ai_prefix","temperature" };
+    String[] keys = { "model","api_key","ai_url","context_ttl","max_turns","search_provider","search_api_key","show_stats","debug","ai_prefix","temperature","search_rounds","pat_wake","sewarden" };
     for (int i = 0; i < keys.length; i++) { String k = keys[i]; String v = (String) cfg.get(k); if (v == null) v = ""; if (k.contains("api_key") && v.length() >= 8) v = maskApiKey(v); sb.append(k).append(" = ").append(v).append("\n"); }
     sb.append("default_account = ").append(getDefaultAccount()).append("\n");
     String persona = loadPersona(); sb.append("人设 = ").append(getActivePersona()).append(persona.isEmpty() ? " (未)" : " (" + persona.length() + "字符)").append("\n");
@@ -2640,7 +2645,7 @@ String maskApiKey(String key) {
     return key.substring(0, 4) + "****" + key.substring(key.length() - 4);
 }
 
-int getMemoryCount(String uin, String realUin) {
+int getMemoryCount(String uin) {
     Cursor c = null;
     try { c = getDb().rawQuery("SELECT COUNT(*) FROM memories WHERE uin=? AND scope='private'", new String[]{uin}); if (c.moveToFirst()) return c.getInt(0); } catch (Exception e) { }
     finally { if (c != null) c.close(); }
@@ -2680,9 +2685,19 @@ boolean isNumeric(String s) { return s != null && s.matches("[0-9]+"); }
 
 // ==================== 生命周期 ====================
 public void onDestroy() {
+    // 落盘所有未保存的上下文
+    for (Object e : aiContexts.entrySet()) {
+        Map.Entry entry = (Map.Entry) e;
+        String key = (String) entry.getKey();
+        int sep = key.lastIndexOf('_');
+        if (sep > 0) {
+            String peer = key.substring(0, sep);
+            int ct = Integer.parseInt(key.substring(sep + 1));
+            saveCtxToDisk(peer, ct);
+        }
+    }
     aiContexts.clear();
     closeSharedDb();
-    new Handler(Looper.getMainLooper()).removeCallbacks(this::closeSharedDb);
 }
 
 // ==================== 拍一拍 ====================
@@ -2735,6 +2750,7 @@ public void onMsg(Object msg) {
     trimmed = sewardenClean(trimmed);
     
     if (trimmed.startsWith("/ai")) {
+        if (aiProcessing) return;
         String aiArg = trimmed.substring(3).trim();
         if (aiArg.isEmpty()) { sendStyledHeader(msg, "ERROR", "/ai <内容> / memory / debug / reboot / set / config / forget / off / on / status"); return; }
         handleAi(msg, aiArg); return;
@@ -2843,6 +2859,7 @@ public void onMsg(Object msg) {
         m4.put("_ts", System.currentTimeMillis());
         lctx.add(m4);
         
+        saveCtxToDisk(peerUin, chatType);
         return;
     }
     // 唤醒词路由
@@ -2861,7 +2878,7 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
     if (cmd.equals("/help")) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
-        h.append("墨鸦 v3.0 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
+        h.append("墨鸦 v4.2.1 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
         if (role.equals("ADMIN") || role.equals("OWNER")) h.append("/ai set / config / off / on / clear\n");
         if (role.equals("OWNER")) h.append("/setdefaultaccount\n");
         h.append("\n墨鸦-Strata | 轻量级 Agentic RAG");
