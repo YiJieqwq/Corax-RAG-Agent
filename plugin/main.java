@@ -81,6 +81,18 @@ SQLiteDatabase getDb() {
             ")"
         );
         sharedDb.execSQL("CREATE INDEX IF NOT EXISTS idx_tag_pool_uin ON tag_pool(uin)");
+        sharedDb.execSQL(
+            "CREATE TABLE IF NOT EXISTS reminders (" +
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+            "uin TEXT NOT NULL, " +
+            "peer_uin TEXT NOT NULL, " +
+            "chat_type INTEGER NOT NULL, " +
+            "content TEXT NOT NULL, " +
+            "remind_at INTEGER NOT NULL, " +
+            "created_at INTEGER NOT NULL, " +
+            "fired INTEGER NOT NULL DEFAULT 0" +
+            ")"
+        );
     }
     return sharedDb;
 }
@@ -981,6 +993,29 @@ JSONArray buildAI2Tools() {
         "{\"type\":\"object\",\"properties\":{\"keyword\":{\"type\":\"string\",\"description\":\"搜索关键词\"}},\"required\":[\"keyword\"]}"));
     t13.put("function", f13);
     tools.put(t13);
+    // set_reminder
+    JSONObject t14 = new JSONObject();
+    t14.put("type", "function");
+    JSONObject f14 = new JSONObject();
+    f14.put("name", "set_reminder");
+    f14.put("description", "为当前用户设置定时提醒，到时间后自动发送提醒消息");
+    f14.put("parameters", new JSONObject(
+        "{\"type\":\"object\",\"properties\":{" +
+        "\"content\":{\"type\":\"string\",\"description\":\"提醒内容\"}," +
+        "\"minutes\":{\"type\":\"integer\",\"description\":\"多少分钟后提醒\"}}," +
+        "\"required\":[\"content\",\"minutes\"]}"));
+    t14.put("function", f14);
+    tools.put(t14);
+    // cancel_reminder
+    JSONObject t15 = new JSONObject();
+    t15.put("type", "function");
+    JSONObject f15 = new JSONObject();
+    f15.put("name", "cancel_reminder");
+    f15.put("description", "取消一个定时提醒");
+    f15.put("parameters", new JSONObject(
+        "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"description\":\"提醒id\"}},\"required\":[\"id\"]}"));
+    t15.put("function", f15);
+    tools.put(t15);
     // toggle_listen
     JSONObject t11 = new JSONObject();
     t11.put("type", "function");
@@ -1074,7 +1109,8 @@ String buildAI2Prompt(String peerUin, int chatType) {
     sb.append("记忆管理模式：");
     sb.append("#M/#MP 私有记忆，#P/#PP 公有记忆。标签必打。创建公有记忆时 about 填被描述者 UIN，不清楚不填。\n");
     sb.append("冷标签无匹配调 search_by_tag(私有)或 search_public_by_tag(公有)。\n");
-    sb.append("需要按内容关键词模糊搜索时调 search_memory(私有)或 search_public_memory(公有)。\n\n");
+    sb.append("需要按内容关键词模糊搜索时调 search_memory(私有)或 search_public_memory(公有)。\n");
+    sb.append("定时提醒：用户要求提醒时调 set_reminder(content,minutes)，取消调 cancel_reminder(id)。\n\n");
 
     sb.append("联网搜索约束：\n");
     int searchRounds = 3;
@@ -1303,6 +1339,33 @@ void handleAi(Object msg, String prompt) {
         handleAiMemory(msg, trimmed.startsWith("memory ") ? trimmed.substring(7).trim() : ""); return;
     }
     if (trimmed.startsWith("forget ")) { handleAiForget(msg, trimmed.substring(7).trim()); return; }
+    if (trimmed.equals("reminder") || trimmed.startsWith("reminder ")) {
+        String rarg = trimmed.equals("reminder") ? "" : trimmed.substring(9).trim();
+        if (rarg.startsWith("rm ") || rarg.startsWith("cancel ")) {
+            String idStr = rarg.substring(rarg.indexOf(' ') + 1).trim();
+            try {
+                long rid = Long.parseLong(idStr);
+                boolean ok = cancelReminder(rid, senderUin);
+                sendStyledHeader(msg, "INFO", ok ? "提醒#" + rid + " 已取消" : "取消失败(不存在或无权限)");
+            } catch (Exception e) { sendStyledHeader(msg, "ERROR", "用法: /ai reminder rm <id>"); }
+        } else {
+            List pending = getPendingReminders(senderUin);
+            if (pending.isEmpty()) { sendStyledHeader(msg, "INFO", "暂无待执行的提醒"); }
+            else {
+                StringBuilder sb = new StringBuilder();
+                sb.append("[定时提醒] ").append(pending.size()).append("条\n");
+                for (int ri = 0; ri < pending.size(); ri++) {
+                    Map rm = (Map) pending.get(ri);
+                    long remindAt = ((Long) rm.get("remind_at")).longValue();
+                    long leftMs = remindAt - System.currentTimeMillis();
+                    String leftStr = leftMs <= 0 ? "即将触发" : relativeTimeLeft(leftMs);
+                    sb.append("#").append(rm.get("id")).append(" ").append(rm.get("content")).append(" (").append(leftStr).append(")\n");
+                }
+                sendStyledHeader(msg, "INFO", sb.toString().trim());
+            }
+        }
+        return;
+    }
 
     // 提前解析引用信息，供 dumpctx 和后续流程使用
     try {
@@ -1649,6 +1712,29 @@ dumpMsgs.put(dj);
             String fn = tc.getJSONObject("function").getString("name");
             if (fn.equals("search_by_tag") || fn.equals("search_public_by_tag") || fn.equals("search_memory") || fn.equals("search_public_memory")) coldLookups.add(tc);
             else if (fn.equals("search_web") || fn.equals("fetch_page")) searchCalls.add(tc);
+            else if (fn.equals("set_reminder")) {
+                String rc = getToolArg(tc, "content"); int mins = getToolArgInt(tc, "minutes");
+                if (!rc.isEmpty() && mins > 0) {
+                    long remindAt = System.currentTimeMillis() + mins * 60 * 1000L;
+                    long rid = storeReminder(senderUin, peerUin, chatType, rc, remindAt);
+                    Map ctxR = new HashMap();
+                    ctxR.put("role", "system");
+                    ctxR.put("content", "<reminder t=\"" + getCurrentTime() + "\">已设置提醒#" + rid + ": " + mins + "分钟后提醒\"" + rc + "\"</reminder>");
+                    ctxR.put("_ts", System.currentTimeMillis());
+                    ctx.add(ctxR);
+                }
+            }
+            else if (fn.equals("cancel_reminder")) {
+                int rid = getToolArgInt(tc, "id");
+                if (rid > 0) {
+                    boolean ok = cancelReminder(rid, senderUin);
+                    Map ctxR = new HashMap();
+                    ctxR.put("role", "system");
+                    ctxR.put("content", "<reminder t=\"" + getCurrentTime() + "\">" + (ok ? "提醒#" + rid + "已取消" : "取消失败(不存在或无权限)") + "</reminder>");
+                    ctxR.put("_ts", System.currentTimeMillis());
+                    ctx.add(ctxR);
+                }
+            }
             else if (fn.equals("call_skill")) skillCalls.add(tc);
             else if (fn.equals("toggle_listen")) {
                 boolean enable = getToolArg(tc, "enable").equals("true");
@@ -2045,6 +2131,7 @@ String sewardenClean(String text) {
                .replace("<memop", "〈memop")
                .replace("<tagresult", "〈tagresult")
                .replace("<searchresult", "〈searchresult")
+               .replace("<reminder", "〈reminder")
                .replace("<search", "〈search")
                .replace("<pinned", "〈pinned")
                .replace("<archive", "〈archive")
@@ -2068,6 +2155,13 @@ String relativeTime(long timestamp) {
     if (diff < 3600000) return (diff / 60000) + "分钟前";
     if (diff < 86400000) return (diff / 3600000) + "小时前";
     return (diff / 86400000) + "天前";
+}
+
+String relativeTimeLeft(long ms) {
+    if (ms < 60000) return "不到1分钟";
+    if (ms < 3600000) return (ms / 60000) + "分钟后";
+    if (ms < 86400000) return (ms / 3600000) + "小时" + ((ms % 3600000) / 60000) + "分钟后";
+    return (ms / 86400000) + "天后";
 }
 
 long getAccessedAt(long id) {
@@ -2392,6 +2486,69 @@ String fetchWebContentSimple(String urlStr, int maxLen) {
         return result;
     } catch (Exception e) { return "[抓取异常]"; }
     finally { if (conn != null) conn.disconnect(); }
+}
+
+// ==================== 定时提醒 ====================
+long storeReminder(String uin, String peerUin, int chatType, String content, long remindAt) {
+    try {
+        ContentValues cv = new ContentValues();
+        cv.put("uin", uin);
+        cv.put("peer_uin", peerUin);
+        cv.put("chat_type", chatType);
+        cv.put("content", content);
+        cv.put("remind_at", remindAt);
+        cv.put("created_at", System.currentTimeMillis());
+        cv.put("fired", 0);
+        return getDb().insert("reminders", null, cv);
+    } catch (Exception e) { log("error.txt", "storeReminder: " + e.getMessage()); return -1; }
+}
+
+void checkAndFireReminders() {
+    Cursor c = null;
+    try {
+        c = getDb().rawQuery(
+            "SELECT id, uin, peer_uin, chat_type, content FROM reminders WHERE fired=0 AND remind_at<=?",
+            new String[]{String.valueOf(System.currentTimeMillis())});
+        while (c.moveToNext()) {
+            long id = c.getLong(0);
+            String uin = c.getString(1);
+            String peerUin = c.getString(2);
+            int chatType = c.getInt(3);
+            String content = c.getString(4);
+            String prefix = "1".equals(getAiConfig("ai_prefix")) ? "[AI] " : "";
+            sendMsg(peerUin, prefix + "⏰ 提醒 @" + getMemberName(chatType, peerUin, uin) + "：" + content, chatType);
+            ContentValues cv = new ContentValues();
+            cv.put("fired", 1);
+            getDb().update("reminders", cv, "id=?", new String[]{String.valueOf(id)});
+        }
+    } catch (Exception e) { log("error.txt", "checkReminders: " + e.getMessage()); }
+    finally { if (c != null) c.close(); }
+}
+
+List getPendingReminders(String uin) {
+    List results = new ArrayList();
+    Cursor c = null;
+    try {
+        c = getDb().rawQuery(
+            "SELECT id, content, remind_at FROM reminders WHERE uin=? AND fired=0 ORDER BY remind_at ASC",
+            new String[]{uin});
+        while (c.moveToNext()) {
+            Map m = new HashMap();
+            m.put("id", c.getLong(0));
+            m.put("content", c.getString(1));
+            m.put("remind_at", c.getLong(2));
+            results.add(m);
+        }
+    } catch (Exception e) { }
+    finally { if (c != null) c.close(); }
+    return results;
+}
+
+boolean cancelReminder(long id, String uin) {
+    try {
+        int rows = getDb().delete("reminders", "id=? AND uin=?", new String[]{String.valueOf(id), uin});
+        return rows > 0;
+    } catch (Exception e) { return false; }
 }
 
 // ==================== Tool 辅助 ====================
@@ -2798,16 +2955,6 @@ public void onDestroy() {
             String[] parts = ((String) key).split("_");
             if (parts.length == 2) saveCtxToDisk(parts[0], Integer.parseInt(parts[1]));
         } catch (Exception ignored) { }
-    // 落盘所有未保存的上下文
-    for (Object e : aiContexts.entrySet()) {
-        Map.Entry entry = (Map.Entry) e;
-        String key = (String) entry.getKey();
-        int sep = key.lastIndexOf('_');
-        if (sep > 0) {
-            String peer = key.substring(0, sep);
-            int ct = Integer.parseInt(key.substring(sep + 1));
-            saveCtxToDisk(peer, ct);
-        }
     }
     aiContexts.clear();
     closeSharedDb();
@@ -2847,6 +2994,7 @@ public void onMsg(Object msg) {
         loadSkills();
         aiReady = true;
     }
+    try { checkAndFireReminders(); } catch (Exception ignored) { }
     
     String text = msg.msg;
     if (text == null) return;

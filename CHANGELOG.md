@@ -27,6 +27,7 @@
 ### Features
 - Enhance Tavily Extract (fetch_page): batch-extract up to 5 URLs in one call, upgrade extract_depth basic→advanced, raise fetched content limit 3000→6000 chars
 - Add search_memory / search_public_memory tools: AI can now search memories by content keyword, not just by tag
+- Add set_reminder / cancel_reminder tools: AI can set timed reminders for users, with `/ai reminder` command to view/cancel
 
 ### Bug Fixes
 - Fix duplicate fetch_page tool definition when Tavily is configured
