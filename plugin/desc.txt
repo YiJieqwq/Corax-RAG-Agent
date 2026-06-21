@@ -1,4 +1,4 @@
-🦅 墨鸦-Strata v4.3.2 (Security-Enhanced) 🦅
+🦅 墨鸦-Strata v4.3.3 (Security-Enhanced) 🦅
 
 \"墨鸦\"——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
 
@@ -24,7 +24,7 @@ ai_prefix = 1（AI 消息强制 [AI] 前缀）
 search_rounds = 3（最大搜索轮次，搜索N轮+最终回答）
 sewarden = 1（WARDEN增强防护，不建议关闭）
 
-近期更新（v4.3.2）：
+近期更新（v4.3.3）：
 - 新增 search_memory / search_public_memory 工具：AI 可按关键词模糊搜索记忆内容，不限于标签
 - Tavily Extract 网页抓取：支持一次批量抓取多个URL（最多5个），advanced深度提取更完整正文
 - fetch_page 工具仅 Tavily 可用（bocha/bing 不暴露）

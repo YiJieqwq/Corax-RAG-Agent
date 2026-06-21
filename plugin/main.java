@@ -3175,7 +3175,7 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
     if (cmd.equals("/help")) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
-        h.append("墨鸦 v4.3.2 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
+        h.append("墨鸦 v4.3.3 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
         if (role.equals("ADMIN") || role.equals("OWNER")) h.append("/ai set / config / off / on / clear\n");
         if (role.equals("OWNER")) h.append("/setdefaultaccount\n");
         h.append("\n墨鸦-Strata | 轻量级 Agentic RAG");
@@ -3274,7 +3274,7 @@ if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
 }
 
 /*
- *  墨鸦 Strata v4.3.2
+ *  墨鸦 Strata v4.3.3
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
  *  Author:  YiJieqwq异界
