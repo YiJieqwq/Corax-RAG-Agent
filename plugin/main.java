@@ -2457,10 +2457,6 @@ public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
 public void onMsg(Object msg) {
     if (msg == null) return;
     
-    // 推送消息总线 (供 workspace daemon 订阅)
-    String msgJson = "{\"from\":\"" + senderUin + "\",\"text\":\"" + text.replace("\"", "\\\"").replace("\n", " ").substring(0, Math.min(text.length(), 200)) + "\",\"to\":\"" + peerUin + "\",\"type\":" + chatType + ",\"time\":\"" + getCurrentTime() + "\"}";
-    vfsPushMsgBus(msgJson);
-    
     // 消息队列：正在处理消息时缓存新消息，不丢弃
     if (aiProcessing) {
         if (msgQueue.size() >= MSG_QUEUE_MAX) msgQueue.poll();
@@ -2484,6 +2480,8 @@ public void onMsg(Object msg) {
     }
     String peerUin = String.valueOf(msg.peerUin);
     int chatType = msg.type;
+    String msgJson = "{\"from\":\"" + senderUin + "\",\"text\":\"" + text.replace("\"", "\\\"").replace("\n", " ").substring(0, Math.min(text.length(), 200)) + "\",\"to\":\"" + peerUin + "\",\"type\":" + chatType + ",\"time\":\"" + getCurrentTime() + "\"}";
+    vfsPushMsgBus(msgJson);
     String trimmed = text.trim();
     
     // SEWarden: 清洗用户输入中的系统标签

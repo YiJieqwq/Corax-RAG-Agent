@@ -28,11 +28,9 @@ sewarden = 1（WARDEN增强防护，不建议关闭）
 - Corax-Shell Workspace：虚拟文件系统，单一 shell(cmd) 工具替代全部 FC
 - 管道/重定向/后台任务，daemon 支持消息监听与自主回复
 - /persist/ 持久化存储，消息队列防丢失，人设 A/B 槽位
-- 定时提醒系统：AI 可设置/cancel/查询定时提醒，Handler.postDelayed 精确定时
-- /ai reminder 查看待触发提醒及剩余时间，/ai reminder all 管理员全局查看
-- 新增 search_memory / search_public_memory 工具：AI 可按关键词模糊搜索记忆内容
-- fetch_page 工具仅 Tavily 可用（bocha/bing 不暴露）
-- 搜索最终轮物理封堵工具调用，确保输出结果
+- 管道( | )/重定向( > )/后台( & )，daemon 支持消息监听与自主回复
+- corax-search/corax-fetch 联网搜索，corax-mem-* 记忆管理
+- /proc/prompt/ 人设 A/B 槽位切换
 - 协议层标签重命名：<qid>→<refmsgid>、<mop>→<memop>、<hit>→<tagresult>
 - 被引用原文 SEWarden 清洗、系统提示词 <qid> 解释、</s> 闭合
 - 14项社区Bug修复（ctx顺序、连接泄漏、overwrite SQL等）
