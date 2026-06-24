@@ -2068,7 +2068,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     // /tmp/
     if (path.startsWith("/tmp/")) return vfsReadTmp(path);
     // directories
-    if (path.equals("/bin/")) return "corax-mem-create  corax-mem-overwrite  corax-mem-rm  corax-mem-tag  corax-mem-search  corax-search  corax-fetch  corax-skill  corax-listen  corax-help";
+    if (path.equals("/bin/")) return "corax-mem-create  corax-mem-rm  corax-mem-tag  corax-mem-search  corax-search  corax-fetch  corax-skill  corax-listen  corax-help";
     if (path.equals("/")) return "bin/  proc/  etc/  dev/  ctx/  var/  src/  tmp/  persist/  usr/";
     if (path.equals("/proc/")) return "sys/  self/  prompt/  ps  free  uptime";
     if (path.equals("/etc/")) return "admins.txt  blocked.txt  members.txt  enabled_conversations.txt  listen_sessions.txt  default_account.txt  prompt/  skills/";
