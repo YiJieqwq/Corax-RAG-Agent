@@ -1503,7 +1503,7 @@ dumpMsgs.put(dj);
             }
         }
         
-        int maxSr = 3;
+        int maxSr = 8;
         try { maxSr = Integer.parseInt(getAiConfig("search_rounds")); } catch (Exception e) { }
         int sr = 0;
         
@@ -1641,7 +1641,7 @@ Map loadAiConfig() {
     cfg.put("temperature", "0.7");
     cfg.put("pat_wake", "1");
     cfg.put("ai_prefix", "1");
-    cfg.put("search_rounds", "3");
+    cfg.put("search_rounds", "8");
     cfg.put("sewarden", "1");
     
     File f = new File(pluginPath + "/config/ai_config.txt");
