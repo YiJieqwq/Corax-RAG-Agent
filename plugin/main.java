@@ -2713,7 +2713,6 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
 
 // 内置命令 (保持原有实现，不变)
 String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, String peerUin, int chatType) {
-String cmd, String[] args, String stdin, String senderUin, String peerUin, int chatType) {
     try {
         if (cmd.equals("echo")) {
             StringBuilder sb = new StringBuilder();
