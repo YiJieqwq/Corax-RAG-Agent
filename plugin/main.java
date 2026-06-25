@@ -8,6 +8,7 @@ import java.util.Date;
 import android.os.Handler;
 import android.os.Looper;
 import java.net.*;
+import java.util.concurrent.*;
 import org.json.*;
 
 // ==================== 全局变量 ====================
@@ -33,6 +34,7 @@ static List cachedWakeWords = null;
 static long wakeWordsFileMtime = 0;
 
 static String cachedSkills = null;
+static ScheduledExecutorService taskScheduler = Executors.newSingleThreadScheduledExecutor();
 static boolean aiProcessing = false;
 static Queue msgQueue = new LinkedList();
 static final int MSG_QUEUE_MAX = 20;
@@ -2676,13 +2678,21 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         }
 
         if (delayMs > 0 && !execTokens.isEmpty()) {
-            Map task = new HashMap();
-            task.put("at", System.currentTimeMillis() + delayMs);
-            task.put("tokens", execTokens);
-            task.put("su", bgSu); task.put("pu", bgPu); task.put("ct", bgCt);
-            delayedTasks.add(task);
+            final List scheduleTokens = new ArrayList(execTokens);
+            final String schSu = bgSu, schPu = bgPu;
+            final int schCt = bgCt;
             StringBuilder preview = new StringBuilder();
             for (int ei = 0; ei < Math.min(execTokens.size(), 6); ei++) { if (ei > 0) preview.append(" "); preview.append(execTokens.get(ei)); }
+            taskScheduler.schedule(new Runnable() {
+                public void run() {
+                    daemonOutQueue.add(schPu + "|" + schCt + "|[延时任务] 即将执行: " + preview.toString());
+                    try { Thread.sleep(50); } catch (Exception e) {}
+                    int[] ix = new int[]{0};
+                    try { parseSequence(scheduleTokens, ix, "", schSu, schPu, schCt); } catch (Exception e) {
+                        daemonOutQueue.add(schPu + "|" + schCt + "|[延时任务错误] " + e.getMessage());
+                    }
+                }
+            }, delayMs, TimeUnit.MILLISECONDS);
             return "[延时 " + (delayMs / 1000) + "s: " + preview.toString() + "]";
         }
 
@@ -3441,6 +3451,7 @@ boolean isNumeric(String s) { return s != null && s.matches("[0-9]+"); }
 
 // ==================== 生命周期 ====================
 public void onDestroy() {
+    try { taskScheduler.shutdownNow(); } catch (Exception e) {}
     for (Object key : aiContexts.keySet()) {
         try {
             String[] parts = ((String) key).split("_");
@@ -3486,24 +3497,6 @@ public void onMsg(Object msg) {
     }
     
     // 检查并执行到期延时任务
-    long now = System.currentTimeMillis();
-    synchronized (delayedTasks) {
-    for (int di = 0; di < delayedTasks.size(); di++) {
-        Map task = (Map) delayedTasks.get(di);
-        long at = Long.parseLong(String.valueOf(task.get("at")));
-        if (now >= at) {
-            List toks = (List) task.get("tokens");
-            String su = (String) task.get("su");
-            String pu = (String) task.get("pu");
-            int ct = Integer.parseInt(String.valueOf(task.get("ct")));
-            int[] ix = new int[]{0};
-            try { parseSequence(toks, ix, "", su, pu, ct); } catch (Exception e) {}
-            delayedTasks.remove(di);
-            di--;
-        }
-    }
-    }
-    
     // 排空 daemon 输出队列（主线程安全发送，去重防刷屏）
     Set sentCache = new HashSet();
     int sent = 0;
