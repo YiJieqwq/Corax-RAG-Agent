@@ -1746,6 +1746,7 @@ String sewardenClean(String text) {
                .replace("</s>", "〈/s〉")
                .replace("<s>", "〈s〉")
                .replace("<user", "〈user")
+               .replace("</quote", "〈/quote")
                .replace("<quote", "〈quote")
                .replace("<listen", "〈listen")
                .replace("<wake", "〈wake")
@@ -1764,7 +1765,11 @@ String sewardenClean(String text) {
                .replace("</t>", "〈/t〉")
                .replace("<warn", "〈warn")
                .replace("<skills", "〈skills")
-               .replace("<refmsgid>", "〈refmsgid〉");
+               .replace("<refmsgid", "〈refmsgid")
+               .replace("<cmd_done", "〈cmd_done")
+               .replace("<shell_output", "〈shell_output")
+               .replace("<reminder", "〈reminder")
+               .replace("<debug", "〈debug");
 }
 
 // ==================== 日志 ====================
