@@ -1482,6 +1482,7 @@ dumpMsgs.put(dj);
                     sr.put("role", "system");
                     sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如果任务完成则直接回复用户。");
                     ai2Msgs.put(sr);
+                    Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<shell_output>\n" + output + "\n</shell_output>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
                     shellCalls.add(output);
                 }
             }
@@ -1576,6 +1577,7 @@ dumpMsgs.put(dj);
                                 srm.put("role", "system");
                                 srm.put("content", "<shell_output>\n" + out + "\n</shell_output>\n继续基于以上输出处理。任务完成则直接回复用户。");
                                 ai2Msgs.put(srm);
+                                Map ctxSo2 = new HashMap(); ctxSo2.put("role", "system"); ctxSo2.put("content", "<shell_output>\n" + out + "\n</shell_output>"); ctxSo2.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo2);
                                 shellCalls.add(out);
                             }
                         }
