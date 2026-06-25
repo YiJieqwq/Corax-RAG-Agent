@@ -1645,6 +1645,11 @@ Map loadAiConfig() {
     cfg.put("pat_wake", "1");
     cfg.put("ai_prefix", "1");
     cfg.put("shell_rounds", "8");
+    // 兼容旧配置 search_rounds
+    if (cfg.containsKey("search_rounds") && !cfg.containsKey("shell_rounds")) {
+        cfg.put("shell_rounds", cfg.get("search_rounds"));
+        cfg.remove("search_rounds");
+    }
     cfg.put("sewarden", "1");
     
     File f = new File(pluginPath + "/config/ai_config.txt");
@@ -2410,6 +2415,7 @@ String vfsReadVarLog(String path) {
 // ======= /dev/ =======
 // 消息总线 — 只读 FD，由 onMsg 注入
 static List msgBus = java.util.Collections.synchronizedList(new ArrayList());
+static boolean onMainThread = false;
 static List daemonOutQueue = java.util.Collections.synchronizedList(new ArrayList());
 static List delayedTasks = java.util.Collections.synchronizedList(new ArrayList()); // {at, tokens, su, pu, ct} // daemon→主线程消息队列
 String vfsReadDev(String path, String peerUin, int chatType) {
@@ -2426,7 +2432,7 @@ String vfsReadDev(String path, String peerUin, int chatType) {
 }
 void vfsWriteDevOut(String content, String peerUin, int chatType) {
     // 检测是否在非主线程（daemon），如果是则放入待发队列
-    if (Thread.currentThread().getId() != 1) {
+    if (!onMainThread) {
         daemonOutQueue.add(peerUin + "|" + chatType + "|" + content);
         return;
     }
@@ -3464,12 +3470,14 @@ public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
 
 // ==================== 路由 ====================
 public void onMsg(Object msg) {
+    onMainThread = true;
     if (msg == null) {
         return;
     }
     
     // 检查并执行到期延时任务
     long now = System.currentTimeMillis();
+    synchronized (delayedTasks) {
     for (int di = 0; di < delayedTasks.size(); di++) {
         Map task = (Map) delayedTasks.get(di);
         long at = Long.parseLong(String.valueOf(task.get("at")));
@@ -3483,6 +3491,7 @@ public void onMsg(Object msg) {
             delayedTasks.remove(di);
             di--;
         }
+    }
     }
     
     // 排空 daemon 输出队列（主线程安全发送，去重防刷屏）
