@@ -1589,7 +1589,7 @@ dumpMsgs.put(dj);
     }
 
     if (!hasSentReply) {
-        // 无任何回复，静默（shell 静默执行时正常）
+        ; // 静默，shell 模式下正常
     }
     StringBuilder finalMsg = new StringBuilder();
     if ("1".equals(getAiConfig("show_stats"))) {
