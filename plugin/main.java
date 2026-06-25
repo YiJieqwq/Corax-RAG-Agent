@@ -1487,6 +1487,8 @@ dumpMsgs.put(dj);
                     sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                     ai2Msgs.put(sr);
                     Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<shell_output>\n" + output + "\n</shell_output>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
+                    // 同时持久化原始shell命令，方便AI回顾
+                    Map ctxCmd = new HashMap(); ctxCmd.put("role", "system"); ctxCmd.put("content", "<shell_cmd>" + cmd + "</shell_cmd>"); ctxCmd.put("_ts", System.currentTimeMillis()); ctx.add(ctxCmd);
                     shellCalls.add(output);
                 }
             }
@@ -1581,6 +1583,7 @@ dumpMsgs.put(dj);
                                 srm.put("content", "<shell_output>\n" + outNote + "\n</shell_output>\n继续基于以上输出处理。如果需要发送消息给用户，必须使用 > /dev/out 重定向。");
                                 ai2Msgs.put(srm);
                                 Map ctxSo2 = new HashMap(); ctxSo2.put("role", "system"); ctxSo2.put("content", "<shell_output>\n" + out + "\n</shell_output>"); ctxSo2.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo2);
+                                Map ctxCmd2 = new HashMap(); ctxCmd2.put("role", "system"); ctxCmd2.put("content", "<shell_cmd>" + scmd + "</shell_cmd>"); ctxCmd2.put("_ts", System.currentTimeMillis()); ctx.add(ctxCmd2);
                                 shellCalls.add(out);
                             }
                         }
@@ -2678,7 +2681,9 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             task.put("tokens", execTokens);
             task.put("su", bgSu); task.put("pu", bgPu); task.put("ct", bgCt);
             delayedTasks.add(task);
-            return "[延时 " + (delayMs / 1000) + "s]";
+            StringBuilder preview = new StringBuilder();
+            for (int ei = 0; ei < Math.min(execTokens.size(), 6); ei++) { if (ei > 0) preview.append(" "); preview.append(execTokens.get(ei)); }
+            return "[延时 " + (delayMs / 1000) + "s: " + preview.toString() + "]";
         }
 
         final List daemonTokens = execTokens.isEmpty() ? bgTokens : execTokens;
@@ -2755,8 +2760,12 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
 
         // 输出重定向
         if (outRedir != null && !pipeIn.isEmpty()) {
-            vfsWrite(outRedir, pipeIn, outAppend, senderUin, peerUin, chatType);
-            pipeIn = "";
+            String werr = vfsWrite(outRedir, pipeIn, outAppend, senderUin, peerUin, chatType);
+            if (outRedir.equals("/dev/out") && werr == null) {
+                pipeIn = "[已发送到 /dev/out: " + (pipeIn.length() > 100 ? pipeIn.substring(0, 100) + "..." : pipeIn) + "]";
+            } else {
+                pipeIn = "";
+            }
         }
 
         // 检查管道
@@ -2769,6 +2778,11 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
 // 内置命令 (保持原有实现，不变)
 String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, String peerUin, int chatType) {
     try {
+        // /dev/out 写入后返回确认
+        boolean wroteOut = false;
+        for (int ai = 0; ai < args.length - 1; ai++) {
+            if (args[ai].equals(">") && args[ai + 1].equals("/dev/out")) wroteOut = true;
+        }
         if (cmd.equals("echo")) {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < args.length; i++) { if (i > 0) sb.append(" "); sb.append(args[i]); }
