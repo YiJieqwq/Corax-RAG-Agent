@@ -1480,7 +1480,8 @@ dumpMsgs.put(dj);
                 if (!quiet && !output.isEmpty()) {
                     JSONObject sr = new JSONObject();
                     sr.put("role", "system");
-                    sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如果任务完成则直接回复用户。");
+                    String outNoteF = output.isEmpty() ? "(无输出)" : output;
+                    sr.put("content", "<shell_output>\n" + outNoteF + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                     ai2Msgs.put(sr);
                     Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<shell_output>\n" + output + "\n</shell_output>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
                     shellCalls.add(output);
@@ -1573,7 +1574,8 @@ dumpMsgs.put(dj);
                             if (!q && !out.isEmpty()) {
                                 JSONObject srm = new JSONObject();
                                 srm.put("role", "system");
-                                srm.put("content", "<shell_output>\n" + out + "\n</shell_output>\n继续基于以上输出处理。任务完成则直接回复用户。");
+                                String outNote = out.isEmpty() ? "(无输出)" : out;
+                                srm.put("content", "<shell_output>\n" + outNote + "\n</shell_output>\n继续基于以上输出处理。如果需要发送消息给用户，必须使用 > /dev/out 重定向。");
                                 ai2Msgs.put(srm);
                                 Map ctxSo2 = new HashMap(); ctxSo2.put("role", "system"); ctxSo2.put("content", "<shell_output>\n" + out + "\n</shell_output>"); ctxSo2.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo2);
                                 shellCalls.add(out);
@@ -2405,6 +2407,7 @@ String vfsReadVarLog(String path) {
 // ======= /dev/ =======
 // 消息总线 — 只读 FD，由 onMsg 注入
 static List msgBus = java.util.Collections.synchronizedList(new ArrayList());
+static List daemonOutQueue = java.util.Collections.synchronizedList(new ArrayList()); // daemon→主线程消息队列
 String vfsReadDev(String path, String peerUin, int chatType) {
     if (path.equals("/dev/msg-stream")) {
         if (msgBus.isEmpty()) {
@@ -2418,6 +2421,11 @@ String vfsReadDev(String path, String peerUin, int chatType) {
     return "[只写设备或不存在]";
 }
 void vfsWriteDevOut(String content, String peerUin, int chatType) {
+    // 检测是否在非主线程（daemon），如果是则放入待发队列
+    if (Thread.currentThread().getId() != 1) {
+        daemonOutQueue.add(peerUin + "|" + chatType + "|" + content);
+        return;
+    }
     sendMsg(peerUin, "[Output] " + content, chatType);
 }
 void vfsWriteDevExit(String content) {
@@ -3403,6 +3411,15 @@ public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
 // ==================== 路由 ====================
 public void onMsg(Object msg) {
     if (msg == null) return;
+    
+    // 排空 daemon 输出队列（主线程安全发送）
+    while (!daemonOutQueue.isEmpty()) {
+        String item = (String) daemonOutQueue.remove(0);
+        String[] parts = item.split("\\|", 3);
+        if (parts.length == 3) {
+            sendMsg(parts[0], "[Output] " + parts[2], Integer.parseInt(parts[1]));
+        }
+    }
     
     // 消息队列：正在处理消息时缓存新消息，不丢弃
     if (aiProcessing) {
