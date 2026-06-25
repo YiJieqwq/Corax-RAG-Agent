@@ -2418,7 +2418,7 @@ String vfsReadVarLog(String path) {
 // ======= /dev/ =======
 // 消息总线 — 只读 FD，由 onMsg 注入
 static List msgBus = java.util.Collections.synchronizedList(new ArrayList());
-static boolean onMainThread = false;
+static int onMainThread = 0;
 static List daemonOutQueue = java.util.Collections.synchronizedList(new ArrayList());
 static List delayedTasks = java.util.Collections.synchronizedList(new ArrayList()); // {at, tokens, su, pu, ct} // daemon→主线程消息队列
 String vfsReadDev(String path, String peerUin, int chatType) {
@@ -2435,7 +2435,7 @@ String vfsReadDev(String path, String peerUin, int chatType) {
 }
 void vfsWriteDevOut(String content, String peerUin, int chatType) {
     // 检测是否在非主线程（daemon），如果是则放入待发队列
-    if (!onMainThread) {
+    if (onMainThread == 0) {
         daemonOutQueue.add(peerUin + "|" + chatType + "|" + content);
         return;
     }
@@ -2778,11 +2778,6 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
 // 内置命令 (保持原有实现，不变)
 String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, String peerUin, int chatType) {
     try {
-        // /dev/out 写入后返回确认
-        boolean wroteOut = false;
-        for (int ai = 0; ai < args.length - 1; ai++) {
-            if (args[ai].equals(">") && args[ai + 1].equals("/dev/out")) wroteOut = true;
-        }
         if (cmd.equals("echo")) {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < args.length; i++) { if (i > 0) sb.append(" "); sb.append(args[i]); }
@@ -3484,7 +3479,8 @@ public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
 
 // ==================== 路由 ====================
 public void onMsg(Object msg) {
-    onMainThread = true;
+    onMainThread++;
+    try {
     if (msg == null) {
         return;
     }
@@ -3792,6 +3788,9 @@ public void onMsg(Object msg) {
             sendStyledHeader(msg, "SUCCESS", "已设为 MEMBER: " + t);
         }
         return;
+    }
+    } finally {
+        onMainThread--;
     }
 }
 
