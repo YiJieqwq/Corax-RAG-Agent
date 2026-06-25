@@ -61,7 +61,7 @@
 
 - 前缀缓存：静态 persona + 规则，整轮不变
 - 末尾注入：记忆档案 + 身份 + 场景，每轮重建，不进 ctx
-- ctx 落盘：JSON 持久化，`max_turns=80`，满 1M 自动压缩
+- ctx 落盘：JSON 持久化，`context_limit=80`，满 1M 自动压缩
 - 监听模式：`<listen />` 后所有 user 消息仅记录不调用 AI
 - 唤醒机制：`@AI`/唤醒词/`<wake />` 触发回答
 
@@ -268,11 +268,11 @@ CREATE TABLE memories (
 | `api_key` | — | DeepSeek API key |
 | `model` | `deepseek-v4-flash` | 模型名 |
 | `context_ttl` | `60` | 对话保留时间（分钟） |
-| `max_turns` | `60` | 保留最大轮数 |
+| `context_limit` | `60` | 保留最大轮数 |
 | `ai_url` | `https://api.deepseek.com` | API 地址 |
 | `search_provider` | `tavily` | 搜索服务商 (tavily / bocha / bing) |
 | `search_api_key` | — | 搜索 API key |
-| `search_rounds` | `3` | 最大搜索轮数 |
+| `shell_rounds` | `3` | 最大搜索轮数 |
 | `temperature` | `0.7` | 生成温度 |
 | `sewarden` | `1` | 标签逃逸防护（推荐开启） |
 | `pat_wake` | `1` | 拍一拍唤醒 |

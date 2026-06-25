@@ -13,7 +13,7 @@
 默认值（可用 /ai set 更改）：
 model = deepseek-v4-flash (可随意修改)
 context_ttl = 60（对话保留一小时）
-max_turns = 60（保留最新60轮）
+context_limit = 60（保留最新60轮）
 ai_url = https://api.deepseek.com (同时支持OpenAI)
 search_provider = tavily (同时支持博查＆Bing)
 show_stats = 0（显示token用量，可关闭）
@@ -21,7 +21,7 @@ debug = 0（非开发人员不要开启）
 temperature = 0.7
 pat_wake = 1（拍一拍唤醒）
 ai_prefix = 1（AI 消息强制 [AI] 前缀）
-search_rounds = 8（最大搜索轮次，搜索N轮+最终回答）
+shell_rounds = 8（最大搜索轮次，搜索N轮+最终回答）
 sewarden = 1（WARDEN增强防护，不建议关闭）
 
 近期更新（v4.4.0）：

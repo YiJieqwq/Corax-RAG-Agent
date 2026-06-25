@@ -948,9 +948,9 @@ String buildAI2Prompt(String peerUin, int chatType) {
     sb.append("- corax-help 查看完整命令，/persist/ 下有开发文档\n\n");
 
     sb.append("联网搜索约束：\n");
-    int searchRounds = 3;
-    try { searchRounds = Integer.parseInt(getAiConfig("search_rounds")); } catch (Exception e) { }
-    sb.append("shell 调用 corax-search 搜索，≤" + searchRounds + "轮后必须直接回复。\n\n");
+    int shellRounds = 3;
+    try { shellRounds = Integer.parseInt(getAiConfig("shell_rounds")); } catch (Exception e) { }
+    sb.append("shell 调用 corax-search 搜索，≤" + shellRounds + "轮后必须直接回复。\n\n");
     
     sb.append("</skills>\n");
     
@@ -1039,8 +1039,8 @@ void addToContext(List ctx, String role, String content, String name) {
     m.put("role", role); m.put("content", content);
     if (name != null) m.put("name", name);
     m.put("_ts", System.currentTimeMillis()); ctx.add(m);
-    int maxTurns = 60;
-    try { maxTurns = Integer.parseInt(getAiConfig("max_turns")); } catch (Exception e) { }
+    int ctxLimit = 60;
+    try { maxTurns = Integer.parseInt(getAiConfig("context_limit")); } catch (Exception e) { }
     while (ctx.size() > maxTurns * 2) ctx.remove(0);
 }
 
@@ -1504,7 +1504,7 @@ dumpMsgs.put(dj);
         }
         
         int maxSr = 8;
-        try { maxSr = Integer.parseInt(getAiConfig("search_rounds")); } catch (Exception e) { }
+        try { maxSr = Integer.parseInt(getAiConfig("shell_rounds")); } catch (Exception e) { }
         int sr = 0;
         
         while (!shellCalls.isEmpty()) {
@@ -1630,7 +1630,7 @@ Map loadAiConfig() {
     cfg.put("api_key", "");
     cfg.put("model", "deepseek-v4-flash");
     cfg.put("context_ttl", "60");
-    cfg.put("max_turns", "60");
+    cfg.put("context_limit", "60");
     cfg.put("ai_url", "https://api.deepseek.com");
     cfg.put("search_provider", "tavily");
     cfg.put("search_api_key", "");
@@ -1639,7 +1639,7 @@ Map loadAiConfig() {
     cfg.put("temperature", "0.7");
     cfg.put("pat_wake", "1");
     cfg.put("ai_prefix", "1");
-    cfg.put("search_rounds", "8");
+    cfg.put("shell_rounds", "8");
     cfg.put("sewarden", "1");
     
     File f = new File(pluginPath + "/config/ai_config.txt");
@@ -2287,7 +2287,7 @@ String vfsWriteProcSys(String path, String content) {
     if (key.equals("api_key") || key.equals("search_api_key")) {
         return "[拒绝: api_key/search_api_key 不可覆写]";
     }
-    String[] vk = {"model","ai_url","context_ttl","max_turns","search_provider","show_stats","debug","ai_prefix","search_rounds","temperature","pat_wake","sewarden"};
+    String[] vk = {"model","ai_url","context_ttl","context_limit","search_provider","show_stats","debug","ai_prefix","shell_rounds","temperature","pat_wake","sewarden"};
     boolean valid = false; for (int i = 0; i < vk.length; i++) if (vk[i].equals(key)) { valid = true; break; }
     if (!valid) {
         return "[无效配置键: " + key + "]";
@@ -3232,10 +3232,10 @@ void handleAiSet(Object msg, String args) {
         return; 
     }
     String key = parts[0].trim(); String value = parts[1].trim();
-    String[] vk = { "api_key","model","ai_url","context_ttl","max_turns","search_provider","search_api_key","show_stats","debug","ai_prefix","search_rounds","temperature","pat_wake","sewarden" };
+    String[] vk = { "api_key","model","ai_url","context_ttl","context_limit","search_provider","search_api_key","show_stats","debug","ai_prefix","shell_rounds","temperature","pat_wake","sewarden" };
     boolean valid = false; for (int i = 0; i < vk.length; i++) if (vk[i].equals(key)) { valid = true; break; }
     if (!valid) { sendStyledHeader(msg, "ERROR", "无效: " + key); return; }
-    if (key.equals("context_ttl") || key.equals("max_turns") || key.equals("show_stats") || key.equals("debug") || key.equals("pat_wake")) { try { Integer.parseInt(value); } catch (Exception e) { sendStyledHeader(msg, "ERROR", "必须是整数"); return; } }
+    if (key.equals("context_ttl") || key.equals("context_limit") || key.equals("show_stats") || key.equals("debug") || key.equals("pat_wake")) { try { Integer.parseInt(value); } catch (Exception e) { sendStyledHeader(msg, "ERROR", "必须是整数"); return; } }
     if (key.equals("temperature")) { try { double d = Double.parseDouble(value); if (d < 0 || d > 2) { sendStyledHeader(msg, "ERROR", "temperature 0~2"); return; } } catch (Exception e) { sendStyledHeader(msg, "ERROR", "必须是小数"); return; } }
     Map cfg = loadAiConfig(); cfg.put(key, value); saveAiConfig(cfg);
     sendStyledHeader(msg, "INFO", "已更新: " + key);
@@ -3245,7 +3245,7 @@ void handleAiConfig(Object msg) {
     if (!requireAdminOrOwner(msg)) { return; }
     Map cfg = loadAiConfig();
     StringBuilder sb = new StringBuilder("[AI 配置]\n");
-    String[] keys = { "model","api_key","ai_url","context_ttl","max_turns","search_provider","search_api_key","search_rounds","show_stats","debug","ai_prefix","temperature","pat_wake","sewarden" };
+    String[] keys = { "model","api_key","ai_url","context_ttl","context_limit","search_provider","search_api_key","shell_rounds","show_stats","debug","ai_prefix","temperature","pat_wake","sewarden" };
     for (int i = 0; i < keys.length; i++) { String k = keys[i]; String v = (String) cfg.get(k); if (v == null) v = ""; if (k.contains("api_key") && v.length() >= 8) v = maskApiKey(v); sb.append(k).append(" = ").append(v).append("\n"); }
     sb.append("default_account = ").append(getDefaultAccount()).append("\n");
     String persona = loadPersona(); sb.append("人设 = ").append(getActivePersona()).append(persona.isEmpty() ? " (未)" : " (" + persona.length() + "字符)").append("\n");

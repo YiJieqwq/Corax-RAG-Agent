@@ -22,7 +22,7 @@
 - Fix dumpctx: quote extraction moved before export
 - Fix overwrite_memory SQL: subquery replaces unsupported ORDER BY LIMIT
 - Fix overwrite_memory: preserve original subject_uin on overwrite
-- Fix /ai config: show missing keys (search_rounds, pat_wake, sewarden)
+- Fix /ai config: show missing keys (shell_rounds, pat_wake, sewarden)
 - Fix /help version, getMemberName duplicate check, canUseAi double getRole
 - Fix onDestroy: save all contexts before clearing
 - Fix listen mode: saveCtxToDisk after recording
