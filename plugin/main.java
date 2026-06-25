@@ -1040,8 +1040,8 @@ void addToContext(List ctx, String role, String content, String name) {
     if (name != null) m.put("name", name);
     m.put("_ts", System.currentTimeMillis()); ctx.add(m);
     int ctxLimit = 60;
-    try { maxTurns = Integer.parseInt(getAiConfig("context_limit")); } catch (Exception e) { }
-    while (ctx.size() > maxTurns * 2) ctx.remove(0);
+    try { ctxLimit = Integer.parseInt(getAiConfig("context_limit")); } catch (Exception e) { }
+    while (ctx.size() > ctxLimit * 2) ctx.remove(0);
 }
 
 // ==================== AI 调用 ====================
