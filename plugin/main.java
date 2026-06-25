@@ -939,24 +939,10 @@ String buildAI2Prompt(String peerUin, int chatType) {
     if (!systemPrompt.isEmpty()) sb.append(systemPrompt).append("\n\n");
     
     sb.append("<skills>\n");
-    sb.append("记忆管理模式：");
-    sb.append("#M/#MP 私有记忆，#P/#PP 公有记忆。标签必打。创建公有记忆时 about 填被描述者 UIN，不清楚不填。当用户对话中透露个人信息时，应主动调用 shell('corax-mem-create ...') 记录，无需等待用户要求。\n");
-    sb.append("冷标签无匹配调 shell('corax-mem-tag ...')，关键词搜索调 shell('corax-mem-search ...')。\n\n");
-
-    sb.append("Corax-Shell 工作区 (通过 shell(cmd) 使用):\n");
-    sb.append("- 所有操作通过 shell 完成。管道(|) 重定向(>) 后台(&)\n");
-    sb.append("- corax-search/corax-fetch 联网，corax-mem-* 记忆管理\n");
-    sb.append("- /dev/out 发消息，/dev/msg-stream 订阅消息流\n");
-    sb.append("- /proc/sys/ 系统属性，/etc/skills/ 技能，/etc/prompt/ 人设\n");
-    sb.append("- /persist/ 持久化脚本，/tmp/ 临时，后台: cmd &\n");
-    sb.append("- cat /proc/ps 查看进程，cat /proc/<pid>/kill 停止\n");
-    sb.append("- corax-help 查看完整命令，/persist/ 下有开发文档\n\n");
-
-    sb.append("联网搜索约束：\n");
-    int shellRounds = 3;
-    try { shellRounds = Integer.parseInt(getAiConfig("shell_rounds")); } catch (Exception e) { }
-    sb.append("shell 调用 corax-search 搜索，≤" + shellRounds + "轮后必须直接回复。\n\n");
-    
+    sb.append("记忆：#M/#MP私有 #P/#PP公有。标签必打。用户透露信息时主动corax-mem-create。\n");
+    sb.append("搜索：corax-mem-tag(标签) corax-mem-search(关键词)。\n");
+    sb.append("联网：corax-search/corax-fetch，≤" + shellRounds + "轮必须回复。\n");
+    sb.append("定时：sleep N && cmd > /dev/out &\n");
     sb.append("</skills>\n");
     
     return sb.toString();
