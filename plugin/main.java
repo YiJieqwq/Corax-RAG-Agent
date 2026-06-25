@@ -1489,14 +1489,9 @@ dumpMsgs.put(dj);
                     sr.put("role", "system");
                     sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                     ai2Msgs.put(sr);
+                    Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<shell_output>\n" + output + "\n</shell_output>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
                     Map ctxCmd = new HashMap(); ctxCmd.put("role", "system"); ctxCmd.put("content", "<shell_cmd>" + cmd + "</shell_cmd>"); ctxCmd.put("_ts", System.currentTimeMillis()); ctx.add(ctxCmd);
-                    // 只持久化有意义的结果，不持久化 "[已发送]" 等简单反馈
-                    if (!output.equals("[已发送]") && !output.startsWith("[延时 ")) {
-                        Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<shell_output>\n" + output + "\n</shell_output>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
-                    }
-                    if (!output.equals("[已发送]")) {
-                        shellCalls.add(output);
-                    }
+                    shellCalls.add(output);
                     if (output.startsWith("[延时 ")) {
                         addToContext(ctx, "assistant", "好的，延时任务已创建", null);
                         hasSentReply = true;
@@ -1594,13 +1589,9 @@ dumpMsgs.put(dj);
                                 String outNote = out.isEmpty() ? "(无输出)" : out;
                                 srm.put("content", "<shell_output>\n" + outNote + "\n</shell_output>\n继续基于以上输出处理。如果需要发送消息给用户，必须使用 > /dev/out 重定向。");
                                 ai2Msgs.put(srm);
+                                Map ctxSo2 = new HashMap(); ctxSo2.put("role", "system"); ctxSo2.put("content", "<shell_output>\n" + out + "\n</shell_output>"); ctxSo2.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo2);
                                 Map ctxCmd2 = new HashMap(); ctxCmd2.put("role", "system"); ctxCmd2.put("content", "<shell_cmd>" + scmd + "</shell_cmd>"); ctxCmd2.put("_ts", System.currentTimeMillis()); ctx.add(ctxCmd2);
-                                if (!out.equals("[已发送]") && !out.startsWith("[延时 ")) {
-                                    Map ctxSo2 = new HashMap(); ctxSo2.put("role", "system"); ctxSo2.put("content", "<shell_output>\n" + out + "\n</shell_output>"); ctxSo2.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo2);
-                                }
-                                if (!out.equals("[已发送]")) {
-                                    shellCalls.add(out);
-                                }
+                                shellCalls.add(out);
                             }
                         }
                     }
@@ -2783,7 +2774,7 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
         if (outRedir != null && !pipeIn.isEmpty()) {
             String werr = vfsWrite(outRedir, pipeIn, outAppend, senderUin, peerUin, chatType);
             if (outRedir.equals("/dev/out") && werr == null) {
-                pipeIn = "[已发送]";
+                pipeIn = "";
             } else {
                 pipeIn = "";
             }
