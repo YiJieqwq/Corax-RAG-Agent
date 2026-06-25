@@ -2639,42 +2639,56 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
 
     // 后台执行
     if (bg) {
-        final List finalTokens = new ArrayList(tokens);
-        final String su = senderUin, pu = peerUin;
-        final int ct = chatType;
+        final List bgTokens = new ArrayList(tokens);
+        final String bgSu = senderUin, bgPu = peerUin;
+        final int bgCt = chatType;
+
+        // 提取 sleep 延时
+        long delayMs = 0;
+        List execTokens = new ArrayList();
+        for (int ti = 0; ti < bgTokens.size(); ti++) {
+            String t = (String) bgTokens.get(ti);
+            if (t.equals("sleep") && ti + 1 < bgTokens.size()) {
+                try { delayMs = Long.parseLong(((String) bgTokens.get(ti + 1)).replaceAll("[^0-9]", "")) * 1000L; }
+                catch (Exception ex) {}
+                ti++;
+                continue;
+            }
+            execTokens.add(t);
+        }
+        // 去掉 sleep 后面紧跟的 && / ;
+        for (int ei = 0; ei < execTokens.size(); ei++) {
+            if (ei > 0 && (execTokens.get(ei).equals("&&") || execTokens.get(ei).equals(";")) && ei + 1 < execTokens.size()) {
+                execTokens.remove(ei); ei--;
+            }
+        }
+
+        if (delayMs > 0 && !execTokens.isEmpty()) {
+            Map task = new HashMap();
+            task.put("at", System.currentTimeMillis() + delayMs);
+            task.put("tokens", execTokens);
+            task.put("su", bgSu); task.put("pu", bgPu); task.put("ct", bgCt);
+            delayedTasks.add(task);
+            return "[延时 " + (delayMs / 1000) + "s]";
+        }
+
+        final List daemonTokens = execTokens.isEmpty() ? bgTokens : execTokens;
         final int p = nextDaemonPid++;
-        final String fLine = line;
-        final String fSu = senderUin, fPu = peerUin;
-        final int fCt = chatType;
-        final int fP = nextDaemonPid++;
         Thread t = new Thread(new Runnable() {
-            volatile boolean running = true;
             public void run() {
                 try {
                     int[] ix = new int[]{0};
-                    parseSequence(finalTokens, ix, "", fSu, fPu, fCt);
-                } catch (Exception e) {
-                    if (running) {
-                        daemonOutQueue.add(fPu + "|" + fCt + "|[daemon error] " + e.getMessage());
-                    }
-                }
-                finally {
-                    running = false;
-                    daemons.remove(fP);
-                    daemonOutputs.remove(fP);
-                }
+                    parseSequence(daemonTokens, ix, "", bgSu, bgPu, bgCt);
+                } catch (Exception e) {}
+                finally { daemons.remove(p); daemonOutputs.remove(p); }
             }
         });
-        t.setDaemon(true);
-        t.start();
-        daemons.put(fP, t);
-        if (finalTokens.contains("sleep")) {
-            daemonOutQueue.add(peerUin + "|" + chatType + "|[daemon#" + fP + "] 已启动，等待延迟...");
-        }
-        return "[pid:" + fP + "]";
+        t.setDaemon(true); t.start();
+        daemons.put(p, t);
+        return "[pid:" + p + "]";
     }
 
-    return result != null ? result : "";
+        return result != null ? result : "";
 }
 
 // 解析序列: pipeline ((; | && | ||) pipeline)*
