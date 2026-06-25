@@ -1556,7 +1556,7 @@ dumpMsgs.put(dj);
                     }
                     addToContext(ctx, "assistant", r2c, null);
                 } else if (!hasSentReply) {
-                    sendMsg(peerUin, "[AI] 没找到相关内容，换个说法试试", chatType);
+                    // AI 返回空内容，静默跳过（shell 模式下正常）
                     hasSentReply = true;
                 }
                 JSONArray sr2tc = null; if (sr2.containsKey("tool_calls")) sr2tc = (JSONArray) sr2.get("tool_calls");
@@ -1586,10 +1586,7 @@ dumpMsgs.put(dj);
     }
 
     if (!hasSentReply) {
-        if (isFirstReply) {
-            if (msg.msgId != 0) sendReplyMsg(peerUin, msg.msgId, "[AI] 深度思考中...", chatType);
-           else sendMsg(peerUin, "[AI] 深度思考中...", chatType);
-        } else sendMsg(peerUin, "[AI] 深度思考中...", chatType);
+        // 无任何回复，静默（shell 静默执行时正常）
     }
     StringBuilder finalMsg = new StringBuilder();
     if ("1".equals(getAiConfig("show_stats"))) {
