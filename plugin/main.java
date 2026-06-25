@@ -344,7 +344,9 @@ Map getPublicTagPool() {
 }
 
 void updateTagPool(String uin, String tagsStr, int delta) {
-    if (tagsStr == null || tagsStr.trim().isEmpty()) return;
+    if (tagsStr == null || tagsStr.trim().isEmpty()) {
+        return;
+    }
     String[] tags = tagsStr.split(",");
     SQLiteDatabase db = getDb();
     try {
@@ -1014,7 +1016,9 @@ void clearAiContext(String peerUin, int chatType) {
 void saveCtxToDisk(String peerUin, int chatType) {
     String key = peerUin + "_" + chatType;
     List ctx = (List) aiContexts.get(key);
-    if (ctx == null || ctx.isEmpty()) return;
+    if (ctx == null || ctx.isEmpty()) {
+        return;
+    }
     try {
         File dir = new File(pluginPath + "/config/ctx");
         if (!dir.exists()) dir.mkdirs();
@@ -1480,8 +1484,7 @@ dumpMsgs.put(dj);
                 if (!quiet && !output.isEmpty()) {
                     JSONObject sr = new JSONObject();
                     sr.put("role", "system");
-                    String outNoteF = output.isEmpty() ? "(无输出)" : output;
-                    sr.put("content", "<shell_output>\n" + outNoteF + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
+                    sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                     ai2Msgs.put(sr);
                     Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<shell_output>\n" + output + "\n</shell_output>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
                     shellCalls.add(output);
@@ -2697,8 +2700,18 @@ String parseSequence(List tokens, int[] idx, String stdin, String senderUin, Str
     while (idx[0] < tokens.size()) {
         String op = (String) tokens.get(idx[0]);
         if (op.equals(";")) { idx[0]++; result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType); }
-        else if (op.equals("&&")) { idx[0]++; result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType); }
-        else if (op.equals("||")) { idx[0]++; String r = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType); if (result == null || result.isEmpty()) result = r; }
+        else if (op.equals("&&")) {
+            idx[0]++;
+            if (result != null && !result.isEmpty()) {
+                result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
+            }
+        }
+        else if (op.equals("||")) {
+            idx[0]++;
+            if (result == null || result.isEmpty()) {
+                result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
+            }
+        }
         else break;
     }
     return result;
@@ -2843,13 +2856,13 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }
             String oldStr = inner.substring(0, sep);
             String newStr = inner.substring(sep + 1);
-            String content = readFileString(filePath);
-            if (content.startsWith("(")) {
+            String content = vfsRead(filePath, senderUin, peerUin, chatType);
+            if (content.startsWith("(") || content.startsWith("[")) {
                 return "sed: " + content;
             }
             if (global) content = content.replace(oldStr, newStr);
             else { int f = content.indexOf(oldStr); if (f >= 0) content = content.substring(0, f) + newStr + content.substring(f + oldStr.length()); }
-            String err = writeFileString(filePath, content, false);
+            String err = vfsWrite(filePath, content, false, senderUin, peerUin, chatType);
             return err != null ? err : "替换完成";
         }
         if (cmd.equals("corax-edit")) {
@@ -2867,8 +2880,8 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             if (!sepReached) {
                 return "用法: corax-edit <路径> <旧文本> --- <新文本>";
             }
-            String content = readFileString(filePath);
-            if (content.startsWith("(")) {
+            String content = vfsRead(filePath, senderUin, peerUin, chatType);
+            if (content.startsWith("(") || content.startsWith("[")) {
                 return "编辑: " + content;
             }
             String oldS = oldB.toString(); String newS = newB.toString();
@@ -2876,7 +2889,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 return "未找到匹配文本";
             }
             content = content.replace(oldS, newS);
-            String err = writeFileString(filePath, content, false);
+            String err = vfsWrite(filePath, content, false, senderUin, peerUin, chatType);
             return err != null ? err : "已替换 1 处";
         }
         if (cmd.equals("corax-search")) {
@@ -3023,17 +3036,23 @@ void executeMemoryCall(JSONObject tc, String fname, String senderUin, String use
     try {
         if (fname.equals("create_memory")) {
             String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags"); String about = getToolArg(tc, "about");
-            if (content.isEmpty()) return;
+            if (content.isEmpty()) {
+                return;
+            }
             String su = about.isEmpty() ? senderUin : about;
             storeMemory(senderUin, content, tags, "private", su);
         } else if (fname.equals("create_public_memory")) {
             String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags"); String about = getToolArg(tc, "about");
-            if (content.isEmpty()) return;
+            if (content.isEmpty()) {
+                return;
+            }
             String su = about.isEmpty() ? senderUin : about;
             storeMemory(senderUin, content, tags, "public", su);
         } else if (fname.equals("overwrite_memory")) {
             int id = getToolArgInt(tc, "id"); String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags");
-            if (id <= 0 || content.isEmpty()) return;
+            if (id <= 0 || content.isEmpty()) {
+                return;
+            }
             int oldW = 1; String origSubject = senderUin;
             Cursor c = null;
             try { c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) { oldW = c.getInt(0); String s = c.getString(1); if (s != null && !s.isEmpty()) origSubject = s; } } catch (Exception e) { }
@@ -3045,7 +3064,9 @@ void executeMemoryCall(JSONObject tc, String fname, String senderUin, String use
             finally { if (last != null) last.close(); }
         } else if (fname.equals("overwrite_public_memory")) {
             int id = getToolArgInt(tc, "id"); String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags");
-            if (id <= 0 || content.isEmpty()) return;
+            if (id <= 0 || content.isEmpty()) {
+                return;
+            }
             int oldW = 1; String origSubject = senderUin;
             Cursor c = null;
             try { c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) { oldW = c.getInt(0); String s = c.getString(1); if (s != null && !s.isEmpty()) origSubject = s; } } catch (Exception e) { }
@@ -3417,9 +3438,15 @@ public void onDestroy() {
 
 // ==================== 拍一拍 ====================
 public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
-    if (!"1".equals(getAiConfig("pat_wake"))) return;
-    if (operatorUin == null) return;
-    if (aiProcessing) return;
+    if (!"1".equals(getAiConfig("pat_wake"))) {
+        return;
+    }
+    if (operatorUin == null) {
+        return;
+    }
+    if (aiProcessing) {
+        return;
+    }
 
     patOperatorUin = operatorUin;
     patPeerUin = peerUin;
@@ -3437,7 +3464,9 @@ public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
 
 // ==================== 路由 ====================
 public void onMsg(Object msg) {
-    if (msg == null) return;
+    if (msg == null) {
+        return;
+    }
     
     // 检查并执行到期延时任务
     long now = System.currentTimeMillis();
@@ -3485,7 +3514,9 @@ public void onMsg(Object msg) {
     }
     
     String text = msg.msg;
-    if (text == null) return;
+    if (text == null) {
+        return;
+    }
     String senderUin = String.valueOf(msg.userUin);
     // 系统消息保护：UIN 无效时跳过处理
     if (senderUin == null || senderUin.isEmpty() || senderUin.equals("0") || senderUin.equals("null")) {
@@ -3501,7 +3532,9 @@ public void onMsg(Object msg) {
     trimmed = sewardenClean(trimmed);
     
     if (trimmed.startsWith("/ai")) {
-        if (aiProcessing) return;
+        if (aiProcessing) {
+            return;
+        }
         String aiArg = trimmed.substring(3).trim();
         if (aiArg.isEmpty()) { sendStyledHeader(msg, "ERROR", "/ai <内容> / memory / debug / reboot / set / config / forget / off / on / status"); return; }
         handleAi(msg, aiArg); return;
@@ -3619,13 +3652,20 @@ public void onMsg(Object msg) {
     }
     // 唤醒词路由
     if (!aiProcessing && !trimmed.startsWith("/") && startsWithWakeWord(trimmed)) {
-        if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) return;
-        handleAi(msg, trimmed); return;
+        if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
+            return;
+        }
+        handleAi(msg, trimmed);
+        return;
     }
-if (!trimmed.startsWith("/") || trimmed.length() < 2) return;
+    if (!trimmed.startsWith("/") || trimmed.length() < 2) {
+        return;
+    }
     String[] tokens = trimmed.split("\\s+");
     String cmd = tokens[0];
-    if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) return;
+    if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
+        return;
+    }
     if (cmd.equals("/whoami")) {
         String role = getRole(senderUin);
         sendStyledHeader(msg, "INFO", "角色: " + role + "\n记忆: " + getMemoryCount(senderUin) + " 条\n默认账户: " + getDefaultAccount());

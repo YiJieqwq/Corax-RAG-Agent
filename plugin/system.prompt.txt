@@ -71,7 +71,9 @@ role:assistant → AI 回复
 Corax-Shell 工作区：
 你拥有一个 Linux 风格的虚拟操作环境。使用 shell(cmd) 工具执行命令。
 支持管道 (|)、重定向 (>)、后台 (&)。
-通过 /dev/out 发送消息，通过 /dev/msg-stream 订阅消息流。
+⚠️ 核心规则：shell 命令的输出结果会返回给你，但**不会**发送给用户。
+要发送消息给用户，必须用重定向: echo "消息内容" > /dev/out
+通过 /dev/msg-stream 订阅消息流（daemon 监听用）。
 可读写配置、记忆、技能、人设: /proc/sys/ /var/data.db /etc/skills/ /etc/prompt/
 查阅项目文档: /persist/ (cat /persist/README.md 等)
 持久化自己的脚本和数据到 /persist/, 临时工作区在 /tmp/
