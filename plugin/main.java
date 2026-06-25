@@ -2684,14 +2684,11 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         }
 
         if (delayMs > 0 && !execTokens.isEmpty()) {
-            final List scheduleTokens = new ArrayList(execTokens);
-            final String schSu = bgSu, schPu = bgPu;
-            final int schCt = bgCt;
             StringBuilder preview = new StringBuilder();
             for (int ei = 0; ei < Math.min(execTokens.size(), 6); ei++) { if (ei > 0) preview.append(" "); preview.append(execTokens.get(ei)); }
-            final List st = scheduleTokens;
-            final String sSu = schSu, sPu = schPu;
-            final int sCt = schCt;
+            final List st = new ArrayList(execTokens);
+            final String sSu = bgSu, sPu = bgPu;
+            final int sCt = bgCt;
             if (delayTimer == null) delayTimer = new Timer(true);
             delayTimer.schedule(new TimerTask() {
                 public void run() {
