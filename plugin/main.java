@@ -2644,10 +2644,25 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
     boolean bg = tokens.size() > 0 && tokens.get(tokens.size() - 1).equals("&");
     if (bg) tokens.remove(tokens.size() - 1);
 
+    // 延时后台命令检测：sleep N && cmd & — 跳过同步执行，直接走延时
+    boolean hasDelay = false;
+    if (bg) {
+        for (int ti = 0; ti < tokens.size(); ti++) {
+            String t = (String) tokens.get(ti);
+            if (t.equals("sleep") && ti + 1 < tokens.size()) {
+                try { hasDelay = Long.parseLong(((String) tokens.get(ti + 1)).replaceAll("[^0-9]", "")) > 0; } catch (Exception e) {}
+                break;
+            }
+        }
+    }
+
     // ---- 递归下降解析器 ----
     // 解析入口
     int[] idx = new int[]{0};
-    String result = parseSequence(tokens, idx, "", senderUin, peerUin, chatType);
+    String result = "";
+    if (!hasDelay) {
+        result = parseSequence(tokens, idx, "", senderUin, peerUin, chatType);
+    }
 
     // 后台执行
     if (bg) {
@@ -2671,7 +2686,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         }
         // 去掉 sleep 后面紧跟的 && / ;
         for (int ei = 0; ei < execTokens.size(); ei++) {
-            if (ei > 0 && (execTokens.get(ei).equals("&&") || execTokens.get(ei).equals(";")) && ei + 1 < execTokens.size()) {
+            if ((execTokens.get(ei).equals("&&") || execTokens.get(ei).equals(";")) && ei + 1 < execTokens.size()) {
                 execTokens.remove(ei); ei--;
             }
         }
