@@ -1485,10 +1485,7 @@ dumpMsgs.put(dj);
                     if (!output.isEmpty()) {
                         Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<shell_output>\n" + output + "\n</shell_output>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
                     }
-                    Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<cmd_result>
-# 命令: " + cmd + "
-# 结果: " + output + "
-</cmd_result>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
+                    Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<cmd_result>\n# 命令: " + cmd + "\n# 结果: " + output + "\n</cmd_result>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
                     shellCalls.add(outText);
                     if (output.startsWith("[延时 ")) {
                         addToContext(ctx, "assistant", "好的，延时任务已创建", null);
