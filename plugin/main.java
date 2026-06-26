@@ -3081,6 +3081,28 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }
             return "用法: corax-listen <on|off|status>";
         }
+        if (cmd.equals("stat")) {
+            if (args.length < 1) { return "用法: stat <路径>"; }
+            String path = args[0];
+            String content = vfsRead(path, senderUin, peerUin, chatType);
+            if (content.startsWith("[路径不存在")) { return content; }
+            boolean isDir = !content.contains(":") && (content.startsWith("bin") || content.startsWith("proc") || content.startsWith("etc") || content.startsWith("dev") || content.startsWith("ctx") || content.startsWith("var") || content.startsWith("src") || content.startsWith("tmp") || content.startsWith("persist") || content.startsWith("usr"));
+            String perms = "/proc/sys/ api_key RO; 其余 RW";
+            if (path.startsWith("/src/")) perms = "RO (源码只读)";
+            else if (path.startsWith("/proc/")) perms = "部分 RO, 部分 RW";
+            else if (path.startsWith("/dev/")) perms = "msg-stream RO, out WO";
+            else if (path.startsWith("/ctx/")) perms = "RO (上下文只读)";
+            else if (path.startsWith("/var/log/")) perms = "RO (日志只读)";
+            else if (path.startsWith("/var/data.db")) perms = "RW (SQLite)";
+            else if (path.startsWith("/etc/prompt/") && path.contains(getActivePersona())) perms = "RO (当前人设不可改)";
+            else if (path.startsWith("/etc/prompt/")) perms = "RW (非激活人设可改)";
+            else if (path.startsWith("/etc/skills/")) perms = "RW";
+            else if (path.startsWith("/persist/")) perms = "RW (持久化)";
+            else if (path.startsWith("/tmp/")) perms = "RW (临时, 限额 1MB/50文件)";
+            else if (path.startsWith("/etc/")) perms = "RW";
+            int size = content.length();
+            return "文件: " + path + "\n类型: " + (isDir ? "目录" : "文件") + "\n大小: " + size + " 字符\n权限: " + perms;
+        }
         if (cmd.equals("corax-help")) {
             return "Corax-Shell v4.4.0\n\n"
                 + "内置命令: ls cat echo grep wc head tail date sleep\n"
