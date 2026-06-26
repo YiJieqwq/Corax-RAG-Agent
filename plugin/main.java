@@ -12,6 +12,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import org.json.*;
 
+// ==================== 全局变量 ====================
 static SQLiteDatabase sharedDb = null;
 
 static Map aiContexts = new HashMap();
@@ -48,6 +49,7 @@ static Map skillContentCache = null;
 static Map skillContentMtime = null;
 static long skillsDirMtime = 0;
 
+// ==================== SQLite ====================
 SQLiteDatabase getDb() {
     if (sharedDb == null || !sharedDb.isOpen()) {
         String dbPath = pluginPath + "/config/data.db";
@@ -99,6 +101,7 @@ void closeSharedDb() {
     }
 }
 
+// ==================== Persona + 唤醒词 ====================
 String loadPersona() {
     String activeName = getActivePersona();
     File dir = new File(pluginPath + "/config/prompt");
@@ -203,6 +206,7 @@ boolean startsWithWakeWord(String text) {
     return false;
 }
 
+// ==================== Skills ====================
 String loadSkills() {
     File dir = new File(pluginPath + "/config/skills");
     if (!dir.exists() || !dir.isDirectory()) { cachedSkills = ""; skillsDirMtime = 0; return ""; }
@@ -223,6 +227,7 @@ String loadSkills() {
     for (int i = 0; i < files.length; i++) {
         String name = files[i].getName();
         String skillName = name.substring(0, name.length() - ".skill.txt".length());
+        // 只取第一行作为简介
         try {
             BufferedReader br = new BufferedReader(new FileReader(files[i]));
             String firstLine = br.readLine();
@@ -269,6 +274,7 @@ String loadSkillContent(String skillName) {
     } catch (Exception e) { return ""; }
 }
 
+// ==================== 默认账户 ====================
 String getDefaultAccount() {
     File f = new File(pluginPath + "/config/default_account.txt");
     if (!f.exists()) {
@@ -311,6 +317,7 @@ boolean canUseAi(String uin) {
     return whitelist.contains(uin);
 }
 
+// ==================== Tag 池 ====================
 Map getTagPool(String uin) {
     long now = System.currentTimeMillis();
     if (tagPoolCache != null && uin.equals(tagPoolCacheUin) && (now - tagPoolCacheTime) < TAG_POOL_CACHE_MS)
@@ -470,6 +477,7 @@ void rebuildPublicTagPool() {
     }
 }
 
+// ==================== 可信度计算 ====================
 int calcCredibility(String uin, String scope, String subjectUin) {
     if ("private".equals(scope)) {
         return 8;
@@ -502,6 +510,7 @@ int calcCredibility(String uin, String scope, String subjectUin) {
     return 6;
 }
 
+// ==================== 记忆操作 ====================
 boolean storeMemory(String uin, String content, String tags, String scope, String subjectUin) {
     try {
         long now = System.currentTimeMillis();
@@ -754,6 +763,7 @@ List searchPublicMemories(String keyword) {
     return results;
 }
 
+// ==================== Strata 格式化核心 ====================
 String buildStrataContext(String senderUin) {
     StringBuilder ctx = new StringBuilder();
     List privAll = getStrataPrivate(senderUin);
@@ -765,6 +775,8 @@ String buildStrataContext(String senderUin) {
 
     Set hotTags = new HashSet();
     Set seenPinned = new HashSet();
+
+    // 置顶
     boolean hasPinned = false;
     for (int i = 0; i < privAll.size(); i++) {
         Map m = (Map) privAll.get(i);
@@ -780,6 +792,8 @@ String buildStrataContext(String senderUin) {
             }
         }
     }
+
+    // 热层
     int count = 0;
     if (ctx.length() > 0 && topN > 0) ctx.append("\n");
     if (topN > 0) {
@@ -798,6 +812,8 @@ String buildStrataContext(String senderUin) {
             touchMemory((Long) m.get("id"));
         }
     }
+
+    // 冷标签补集
     Map pool = getTagPool(senderUin);
     StringBuilder coldTags = new StringBuilder();
     int ct = 0;
@@ -833,6 +849,8 @@ String buildPublicStrata() {
     Set hotTags = new HashSet();
     Set seenPinned = new HashSet();
     StringBuilder ctx = new StringBuilder();
+
+    // 置顶
     boolean hasPinned = false;
     for (int i = 0; i < pubAll.size(); i++) {
         Map pm = (Map) pubAll.get(i);
@@ -853,6 +871,8 @@ String buildPublicStrata() {
             }
         }
     }
+
+    // 热层
     int count = 0;
     if (ctx.length() > 0 && topN > 0) ctx.append("\n");
     if (topN > 0) {
@@ -893,6 +913,7 @@ String buildPublicStrata() {
     return ctx.toString().trim();
 }
 
+// ==================== FC 工具（单模型） ====================
 JSONArray buildAI2Tools() {
     JSONArray tools = new JSONArray();
     JSONObject t = new JSONObject();
@@ -907,6 +928,7 @@ JSONArray buildAI2Tools() {
     return tools;
 }
 
+// ==================== AI2 Prompt ====================
 String buildAI2Prompt(String peerUin, int chatType) {
     StringBuilder sb = new StringBuilder();
     String persona = loadPersona();
@@ -929,6 +951,7 @@ String buildAI2Prompt(String peerUin, int chatType) {
     return sb.toString();
 }
 
+// ==================== AI 上下文 ====================
 List getAiContext(String peerUin, int chatType) {
     String key = peerUin + "_" + chatType;
     List ctx = (List) aiContexts.get(key);
@@ -1017,6 +1040,7 @@ void addToContext(List ctx, String role, String content, String name) {
     while (ctx.size() > ctxLimit * 2) ctx.remove(0);
 }
 
+// ==================== AI 调用 ====================
 Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int maxTokens, JSONArray tools) {
     System.setProperty("http.keepAlive", "true");
     Map cfg = loadAiConfig();
@@ -1084,6 +1108,7 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
     finally { if (conn != null) { try { conn.disconnect(); } catch (Exception ignored) { } } }
 }
 
+// ==================== handleAi v4.0 Strata ====================
 void handleAi(Object msg, String prompt) {
     long startTime = System.currentTimeMillis();
     int totalPt = 0; int totalCt = 0; int totalCalls = 0;
@@ -1212,6 +1237,7 @@ void handleAi(Object msg, String prompt) {
         }
     }
     
+    
     if (trimmed.equals("reboot") || trimmed.startsWith("reboot ")) { handleReboot(msg, trimmed); return; }
     if (trimmed.equals("debug") || trimmed.startsWith("debug ")) { handleDebug(msg, trimmed); return; }
     Map cfg = loadAiConfig();
@@ -1317,6 +1343,8 @@ dumpMsgs.put(dj);
         ai2Msgs.put(j);
     }
 
+    // === 当前轮新鲜注入层（末尾，不进 ctx） ===
+    
     // v4.0: 唤醒点标记——仅在监听模式且被唤醒时注入
     String lkey = peerUin + "_" + chatType;
     if (listenSessions != null && listenSessions.contains(lkey)) {
@@ -1325,14 +1353,19 @@ dumpMsgs.put(dj);
         wakeMark.put("content", "<wake t=\"" + getCurrentTime() + "\" />");
         ai2Msgs.put(wakeMark);
     }
+    // 公有记忆
     String pubStrata = buildPublicStrata();
     if (!pubStrata.isEmpty()) {
         JSONObject ps = new JSONObject(); ps.put("role", "system"); ps.put("content", pubStrata); ai2Msgs.put(ps);
     }
+
+    // 私有记忆
      String privStrata = buildStrataContext(senderUin);
      if (!privStrata.isEmpty()) {
          JSONObject pvs = new JSONObject(); pvs.put("role", "system"); pvs.put("content", privStrata); ai2Msgs.put(pvs);
     }
+
+    // 可用技能
     String skills = loadSkills();
     if (!skills.isEmpty()) {
         JSONObject skl = new JSONObject(); skl.put("role", "system"); skl.put("content", "=== 可用技能 ===\n" + skills); ai2Msgs.put(skl);
@@ -1450,7 +1483,12 @@ dumpMsgs.put(dj);
                     sr.put("content", "<shell_output>\n" + outText + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                     ai2Msgs.put(sr);
                     if (!output.isEmpty()) {
-                    Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<cmd_result>\n# 命令: " + cmd + "\n# 结果: " + output + "\n</cmd_result>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
+                        Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<shell_output>\n" + output + "\n</shell_output>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
+                    }
+                    Map ctxSo = new HashMap(); ctxSo.put("role", "system"); ctxSo.put("content", "<cmd_result>
+# 命令: " + cmd + "
+# 结果: " + output + "
+</cmd_result>"); ctxSo.put("_ts", System.currentTimeMillis()); ctx.add(ctxSo);
                     shellCalls.add(outText);
                     if (output.startsWith("[延时 ")) {
                         addToContext(ctx, "assistant", "好的，延时任务已创建", null);
@@ -1459,6 +1497,7 @@ dumpMsgs.put(dj);
                     }
                 }
             }
+            else if (fn.equals("call_skill")) skillCalls.add(tc);
             else if (fn.equals("toggle_listen")) {
                 boolean enable = getToolArg(tc, "enable").equals("true");
                 String key = peerUin + "_" + chatType;
@@ -1594,6 +1633,7 @@ void processQueue() {
     }
 }
 
+// ==================== AI 配置 ====================
 Map loadAiConfig() {
     long now = System.currentTimeMillis();
     if (aiConfigCache != null && (now - aiConfigCacheTime) < AI_CONFIG_CACHE_MS) {
@@ -1663,6 +1703,7 @@ String resolveAiCfg(Map cfg, String prefixedKey, String fallbackKey) {
     return v != null ? v : "";
 }
 
+// ==================== CAST ====================
 String getRole(String uin) {
     if (uin.equals(myUin)) {
         return "OWNER";
@@ -1743,6 +1784,7 @@ String sewardenClean(String text) {
                .replace("<debug", "〈debug");
 }
 
+// ==================== 日志 ====================
 String getCurrentTime() { return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()); }
 
 String relativeTime(long timestamp) {
@@ -1822,6 +1864,7 @@ void writeLog(String senderUin, String command) {
     } catch (Exception e) { this.log("error.txt", "writeLog: " + e.getMessage()); }
 }
 
+// ==================== 切槽 ====================
 String getActivePersona() {
     File f = new File(pluginPath + "/config/active_prompt.txt");
     if (!f.exists()) {
@@ -1883,6 +1926,7 @@ void handleDebug(Object msg, String trimmed) {
     else if (dp[1].equals("0") || dp[1].equals("1")) { Map cfg = loadAiConfig(); cfg.put("debug", dp[1]); saveAiConfig(cfg); sendStyledHeader(msg, "INFO", "debug = " + dp[1]); }
     else { sendStyledHeader(msg, "ERROR", "用法: /ai debug 0/1"); }
 }
+// ==================== 联网搜索 ====================
 String doWebSearch(String query) {
     Map cfg = loadAiConfig();
     String provider = (String) cfg.get("search_provider");
@@ -2123,6 +2167,9 @@ String fetchWebContentSimple(String urlStr, int maxLen) {
     finally { if (conn != null) conn.disconnect(); }
 }
 
+// ==================== Corax-Shell VFS ====================
+// 虚拟文件系统核心 — 路径式能力暴露
+
 // VFS 读入口
 String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     path = vfsNorm(path);
@@ -2229,17 +2276,21 @@ String vfsWrite(String path, String content, boolean append, String senderUin, S
     }
     return "[只读或不存在: " + path + "]";
 }
+
+// 路径规范化
 String vfsNorm(String p) {
     if (p == null) {
         return "/";
     }
     p = p.trim();
+    // 去掉 // /./ /../
     while (p.contains("//")) p = p.replace("//", "/");
     while (p.contains("/./")) p = p.replace("/./", "/");
     if (!p.startsWith("/")) p = "/" + p;
     return p;
 }
 
+// ======= /proc/sys/ =======
 String vfsReadProcSys(String path) {
     Map cfg = loadAiConfig();
     String key = path.replace("/proc/sys/", "");
@@ -2268,6 +2319,7 @@ String vfsWriteProcSys(String path, String content) {
     return null;
 }
 
+// ======= /proc/self/ =======
 String vfsReadProcSelf(String path, String senderUin, int chatType, String peerUin) {
     if (path.equals("/proc/self/role")) {
         return getRole(senderUin);
@@ -2285,6 +2337,7 @@ String vfsReadProcSelf(String path, String senderUin, int chatType, String peerU
     return "[未知: " + path + "]";
 }
 
+// ======= /proc/prompt/ =======
 String vfsReadProcPrompt(String path) {
     if (path.equals("/proc/prompt/active")) {
         return getActivePersona();
@@ -2316,6 +2369,7 @@ String vfsWritePromptActive(String content) {
     return null;
 }
 
+// ======= /etc/ =======
 String vfsMapEtcPath(String path) {
     String file = path.substring(5); // strip "/etc/"
     if (file.startsWith("prompt/")) {
@@ -2344,6 +2398,7 @@ String vfsWriteEtc(String path, String content, boolean append) {
     return writeFileString(real, content, append);
 }
 
+// ======= /ctx/ =======
 String vfsReadCtx(String path) {
     if (path.equals("/ctx/")) {
         File dir = new File(pluginPath + "/config/ctx");
@@ -2359,6 +2414,7 @@ String vfsReadCtx(String path) {
     return readFileString(real);
 }
 
+// ======= /var/log/ =======
 String vfsReadVarLog(String path) {
     if (path.equals("/var/log/messages")) {
         return readFileString(pluginPath + "/config/log.txt");
@@ -2369,6 +2425,7 @@ String vfsReadVarLog(String path) {
     return "[未知日志: " + path + "]";
 }
 
+// ======= /dev/ =======
 // 消息总线 — 只读 FD，由 onMsg 注入
 static List msgBus = java.util.Collections.synchronizedList(new ArrayList());
 static int onMainThread = 0;
@@ -2400,6 +2457,7 @@ void vfsWriteDevExit(String content) {
     // daemon 退出信号，由 shell exec 的 & 分支处理
 }
 
+// ======= /persist/ /tmp/ (共享存储) =======
 static Map vfsTmp = new HashMap(); // 内存虚拟 /tmp
 String vfsReadPersist(String path) {
     return readFileString(pluginPath + "/shared-space/" + path.replace("/persist/", ""));
@@ -2424,6 +2482,7 @@ String vfsWriteTmp(String path, String content, boolean append) {
     return null;
 }
 
+// ======= /src/ /proc/ps/free/uptime =======
 String vfsReadSrc() { return readFileString(pluginPath + "/main.java"); }
 static long wsStartTime = System.currentTimeMillis();
 String vfsReadProcPS() {
@@ -2483,6 +2542,7 @@ String vfsWriteProcKill(String path) {
     } catch (Exception e) { return "[解析失败]"; }
 }
 
+// ======= /var/ =======
 String vfsWriteVarDb(String sql) {
     // 白名单 SQL
     String upper = sql.trim().toUpperCase();
@@ -2493,6 +2553,7 @@ String vfsWriteVarDb(String sql) {
     catch (Exception e) { return "[SQL错误: " + e.getMessage() + "]"; }
 }
 
+// ======= 辅助 =======
 String readFileString(String path) {
     try {
         File f = new File(path);
@@ -2534,9 +2595,12 @@ String writeFileString(String path, String content, boolean append) {
     } catch (Exception e) { return "[写入失败: " + e.getMessage() + "]"; }
 }
 
+// ==================== Corax-Shell 执行器 ====================
 static Map daemons = java.util.Collections.synchronizedMap(new HashMap());
 static Map daemonOutputs = java.util.Collections.synchronizedMap(new HashMap());
 static int nextDaemonPid = 1;
+
+// 单行命令解析与执行
 String shellExecLine(String line, String senderUin, String peerUin, int chatType) {
     if (line == null || line.trim().isEmpty()) {
         return "";
@@ -2553,17 +2617,24 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
     int pos = 0;
     while (pos < line.length()) {
         char c = line.charAt(pos);
+        // 空白跳过
         if (c == ' ' || c == '\t') { pos++; continue; }
+        // 注释
         if (c == '#') break;
+        // 后台
         if (c == '&' && pos == line.length() - 1) { tokens.add("&"); break; }
         if (c == '&' && pos + 1 < line.length() && line.charAt(pos + 1) == '&') { tokens.add("&&"); pos += 2; continue; }
         // OR
         if (c == '|' && pos + 1 < line.length() && line.charAt(pos + 1) == '|') { tokens.add("||"); pos += 2; continue; }
+        // 管道
         if (c == '|') { tokens.add("|"); pos++; continue; }
+        // 分号
         if (c == ';') { tokens.add(";"); pos++; continue; }
+        // 重定向
         if (c == '>' && pos + 1 < line.length() && line.charAt(pos + 1) == '>') { tokens.add(">>"); pos += 2; continue; }
         if (c == '>') { tokens.add(">"); pos++; continue; }
         if (c == '<') { tokens.add("<"); pos++; continue; }
+        // 引号字符串
         if (c == '"' || c == '\'') {
             char quote = c;
             int startQ = ++pos;
@@ -2572,6 +2643,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             if (pos < line.length()) pos++; // skip closing quote
             continue;
         }
+        // 普通单词
         int startW = pos;
         while (pos < line.length() && " |;&><\t".indexOf(line.charAt(pos)) < 0) pos++;
         tokens.add(line.substring(startW, pos));
@@ -2579,6 +2651,8 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
     if (tokens.isEmpty()) {
         return "";
     }
+
+    // 后台标记
     boolean bg = tokens.size() > 0 && tokens.get(tokens.size() - 1).equals("&");
     if (bg) tokens.remove(tokens.size() - 1);
 
@@ -2593,12 +2667,16 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             }
         }
     }
+
+    // ---- 递归下降解析器 ----
     // 解析入口
     int[] idx = new int[]{0};
     String result = "";
     if (!hasDelay) {
         result = parseSequence(tokens, idx, "", senderUin, peerUin, chatType);
     }
+
+    // 后台执行
     if (bg) {
         final List bgTokens = new ArrayList(tokens);
         final String bgSu = senderUin;
@@ -2639,6 +2717,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             if (delayTimer == null) delayTimer = new Timer(true);
             delayTimer.schedule(new TimerTask() {
                 public void run() {
+                    // 标记已触发，防止轮询重复执行
                     task.put("fired", Boolean.TRUE);
                     // 投递到主线程执行，确保 sendMsg 能正常工作
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
@@ -2713,6 +2792,7 @@ String parseSequence(List tokens, int[] idx, String stdin, String senderUin, Str
 String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, String peerUin, int chatType) {
     String pipeIn = stdin;
     while (idx[0] < tokens.size()) {
+        // 收集命令词和重定向
         List cmdArgs = new ArrayList();
         String outRedir = null; boolean outAppend = false; String inRedir = null;
         while (idx[0] < tokens.size()) {
@@ -2726,13 +2806,19 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
         }
 
         if (cmdArgs.isEmpty()) break;
+
+        // 输入重定向
         if (inRedir != null) pipeIn = vfsRead(inRedir, senderUin, peerUin, chatType);
+
+        // 执行命令
         String cmd = (String) cmdArgs.get(0);
         String[] args = new String[cmdArgs.size() - 1];
         for (int ai = 1; ai < cmdArgs.size(); ai++) args[ai - 1] = (String) cmdArgs.get(ai);
 
         String result = shellBuiltin(cmd, args, pipeIn != null ? pipeIn : "", senderUin, peerUin, chatType);
         pipeIn = (result != null) ? result : "";
+
+        // 输出重定向
         if (outRedir != null && !pipeIn.isEmpty()) {
             String werr = vfsWrite(outRedir, pipeIn, outAppend, senderUin, peerUin, chatType);
             if (werr != null) {
@@ -2743,11 +2829,15 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
                 pipeIn = "";
             }
         }
+
+        // 检查管道
         if (idx[0] < tokens.size() && tokens.get(idx[0]).equals("|")) { idx[0]++; continue; }
         break;
     }
     return pipeIn;
 }
+
+// 内置命令 (保持原有实现，不变)
 String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, String peerUin, int chatType) {
     try {
         if (cmd.equals("echo")) {
@@ -2981,6 +3071,8 @@ String formatMemList(List results, boolean isPublic) {
     }
     return sb.toString().trim();
 }
+
+// 加载技能内容
 String loadSkillContent(String name) {
     if (!name.endsWith(".skill.txt")) name += ".skill.txt";
     return readFileString(pluginPath + "/config/skills/" + name);
@@ -2992,6 +3084,10 @@ void vfsPushMsgBus(String msgJson) {
     if (msgBus.size() > 100) msgBus.remove(0);
 }
 
+
+
+
+// ==================== Tool 辅助 ====================
 String getToolArg(JSONObject tc, String key) {
     try { return new JSONObject(tc.getJSONObject("function").getString("arguments")).optString(key, ""); } catch (Exception e) { return ""; }
 }
@@ -3039,19 +3135,12 @@ void executeMemoryCall(JSONObject tc, String fname, String senderUin, String use
             }
             int oldW = 1; String origSubject = senderUin;
             Cursor c = null;
-            try { c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) { oldW = c.getInt(0); String s = c.getString(1); if (s != null && !s.isEmpty()) origSubject = s; } }
-            catch (Exception e) { }
+            try { c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) { oldW = c.getInt(0); String s = c.getString(1); if (s != null && !s.isEmpty()) origSubject = s; } } catch (Exception e) { }
             finally { if (c != null) c.close(); }
             deleteMemoryById(id, senderUin, userRole);
             storeMemory(senderUin, content, tags, "private", origSubject);
             Cursor last = null;
-            try {
-                last = getDb().rawQuery("SELECT id FROM memories WHERE uin=? AND scope='private' ORDER BY id DESC LIMIT 1", new String[]{senderUin});
-                if (last.moveToFirst()) {
-                    long lastId = last.getLong(0);
-                    getDb().execSQL("UPDATE memories SET weight=? WHERE id=?", new Object[]{oldW + 1, lastId});
-                }
-            } catch (Exception e) { }
+            try { last = getDb().rawQuery("SELECT id FROM memories WHERE uin=? AND scope='private' ORDER BY id DESC LIMIT 1", new String[]{senderUin}); if (last.moveToFirst()) { long lastId = last.getLong(0); getDb().execSQL("UPDATE memories SET weight=? WHERE id=?", new Object[]{oldW + 1, lastId}); } } catch (Exception e) { }
             finally { if (last != null) last.close(); }
         } else if (fname.equals("overwrite_public_memory")) {
             int id = getToolArgInt(tc, "id"); String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags");
@@ -3060,31 +3149,17 @@ void executeMemoryCall(JSONObject tc, String fname, String senderUin, String use
             }
             int oldW = 1; String origSubject = senderUin;
             Cursor c = null;
-            try {
-                c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)});
-                if (c.moveToFirst()) {
-                    oldW = c.getInt(0);
-                    String s = c.getString(1);
-                    if (s != null && !s.isEmpty()) origSubject = s;
-                }
-            }
-            catch (Exception e) { }
+            try { c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)}); if (c.moveToFirst()) { oldW = c.getInt(0); String s = c.getString(1); if (s != null && !s.isEmpty()) origSubject = s; } } catch (Exception e) { }
             finally { if (c != null) c.close(); }
             deleteMemoryById(id, senderUin, userRole);
             storeMemory(senderUin, content, tags, "public", origSubject);
             Cursor last = null;
-            try {
-                last = getDb().rawQuery("SELECT id FROM memories WHERE scope='public' ORDER BY id DESC LIMIT 1", null);
-                if (last.moveToFirst()) {
-                    int lastId = last.getInt(0);
-                    getDb().execSQL("UPDATE memories SET weight=" + (oldW + 1) + " WHERE id=" + lastId);
-                }
-            }
-            catch (Exception e) { }
+            try { last = getDb().rawQuery("SELECT id FROM memories WHERE scope='public' ORDER BY id DESC LIMIT 1", null); if (last.moveToFirst()) { int lastId = last.getInt(0); getDb().execSQL("UPDATE memories SET weight=" + (oldW + 1) + " WHERE id=" + lastId); } } catch (Exception e) { }
             finally { if (last != null) last.close(); }
         } else if (fname.equals("delete_memory")) { int id = getToolArgInt(tc, "id"); if (id > 0) deleteMemoryById(id, senderUin, userRole); }
     } catch (Exception e) { this.log("error.txt", "execMem: " + e.getMessage()); }
 }
+// ==================== 命令处理 ====================
 void handleAiMemory(Object msg, String args) {
     String senderUin = String.valueOf(msg.userUin);
     String userRole = getRole(senderUin);
@@ -3145,14 +3220,7 @@ void handleAiMemory(Object msg, String args) {
         String kw = parts[1];
         List found = kw.startsWith("tag:") ? searchMemoriesByTag(senderUin, kw.substring(4)) : searchMemories(senderUin, kw);
         if (found.isEmpty()) sendStyledHeader(msg, "INFO", "没有匹配 \"" + kw + "\"");
-        else { StringBuilder sb = new StringBuilder();
-        sb.append("[搜索 \"").append(kw).append("\"] ").append(found.size()).append(" 条:\n");
-        for (int i = 0;
-        i < found.size();
-        i++) { Map m = (Map) found.get(i);
-        sb.append("#").append(m.get("id")).append(" ").append(m.get("content")).append("\n");
-        } sendStyledHeader(msg, "INFO", sb.toString());
-        }
+        else { StringBuilder sb = new StringBuilder(); sb.append("[搜索 \"").append(kw).append("\"] ").append(found.size()).append(" 条:\n"); for (int i = 0; i < found.size(); i++) { Map m = (Map) found.get(i); sb.append("#").append(m.get("id")).append(" ").append(m.get("content")).append("\n"); } sendStyledHeader(msg, "INFO", sb.toString()); }
         return;
     }
     if (sub.equals("set")) {
@@ -3361,9 +3429,7 @@ void handleAiSet(Object msg, String args) {
     String[] vk = { "api_key","model","ai_url","context_ttl","context_limit","search_provider","search_api_key","show_stats","debug","ai_prefix","shell_rounds","temperature","pat_wake","sewarden" };
     boolean valid = false; for (int i = 0; i < vk.length; i++) if (vk[i].equals(key)) { valid = true; break; }
     if (!valid) { sendStyledHeader(msg, "ERROR", "无效: " + key); return; }
-    if (key.equals("context_ttl") || key.equals("context_limit") || key.equals("show_stats") || key.equals("debug") || key.equals("pat_wake")) { try { Integer.parseInt(value); }
-    catch (Exception e) { sendStyledHeader(msg, "ERROR", "必须是整数");
-    return; } }
+    if (key.equals("context_ttl") || key.equals("context_limit") || key.equals("show_stats") || key.equals("debug") || key.equals("pat_wake")) { try { Integer.parseInt(value); } catch (Exception e) { sendStyledHeader(msg, "ERROR", "必须是整数"); return; } }
     if (key.equals("temperature")) { try { double d = Double.parseDouble(value); if (d < 0 || d > 2) { sendStyledHeader(msg, "ERROR", "temperature 0~2"); return; } } catch (Exception e) { sendStyledHeader(msg, "ERROR", "必须是小数"); return; } }
     Map cfg = loadAiConfig(); cfg.put(key, value); saveAiConfig(cfg);
     sendStyledHeader(msg, "INFO", "已更新: " + key);
@@ -3409,6 +3475,7 @@ int getPublicMemoryCount() {
     return 0;
 }
 
+// ==================== 消息工具 ====================
 void sendStyledHeader(Object msg, String status, String msgText) {
     StringBuilder sb = new StringBuilder();
     sb.append("[").append(status).append("] ").append(getCurrentTime()).append("\n");
@@ -3437,6 +3504,7 @@ String extractTargetUin(Object msg, String arg) {
 
 boolean isNumeric(String s) { return s != null && s.matches("[0-9]+"); }
 
+// ==================== 生命周期 ====================
 public void onDestroy() {
     if (delayTimer != null) { delayTimer.cancel(); delayTimer.purge(); delayTimer = null; }
     for (Object key : aiContexts.keySet()) {
@@ -3449,6 +3517,7 @@ public void onDestroy() {
     closeSharedDb();
 }
 
+// ==================== 拍一拍 ====================
 public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
     if (!"1".equals(getAiConfig("pat_wake"))) {
         return;
@@ -3474,12 +3543,15 @@ public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
     }, "[UIN:" + operatorUin + "][" + getCurrentTime() + "] 拍了拍你");
 }
 
+// ==================== 路由 ====================
 public void onMsg(Object msg) {
     onMainThread++;
     try {
     if (msg == null) {
         return;
     }
+    
+    // 检查并执行到期延时任务
     // 轮询兜底：检查到期延时任务（Timer已触发的跳过）
     long nowMs = System.currentTimeMillis();
     synchronized (delayedTasks) {
@@ -3519,6 +3591,8 @@ public void onMsg(Object msg) {
         }
     }
     if (!daemonOutQueue.isEmpty()) daemonOutQueue.clear(); // 清空剩余
+    
+    // 消息队列：正在处理消息时缓存新消息，不丢弃
     if (aiProcessing) {
         if (msgQueue.size() >= MSG_QUEUE_MAX) msgQueue.poll();
         msgQueue.offer(msg);
@@ -3543,9 +3617,7 @@ public void onMsg(Object msg) {
     }
     String peerUin = String.valueOf(msg.peerUin);
     int chatType = msg.type;
-    String msgJson = "{\"from\":\"" + senderUin + "\",\"text\":\""
-        + text.replace("\"", "\\\"").replace("\n", " ").substring(0, Math.min(text.length(), 200))
-        + "\",\"to\":\"" + peerUin + "\",\"type\":" + chatType + ",\"time\":\"" + getCurrentTime() + "\"}";
+    String msgJson = "{\"from\":\"" + senderUin + "\",\"text\":\"" + text.replace("\"", "\\\"").replace("\n", " ").substring(0, Math.min(text.length(), 200)) + "\",\"to\":\"" + peerUin + "\",\"type\":" + chatType + ",\"time\":\"" + getCurrentTime() + "\"}";
     vfsPushMsgBus(msgJson);
     String trimmed = text.trim();
     
@@ -3603,6 +3675,8 @@ public void onMsg(Object msg) {
                                .replaceAll("[,，:：;；]", "")
                                .trim();
         String userRole = getRole(senderUin);
+        
+        // 获取引用信息（如果有）
         String quotedText = "";
         String quotedUin = "";
         try {
@@ -3617,20 +3691,9 @@ public void onMsg(Object msg) {
                         Object re = rf.get(el);
                         if (re != null) {
                             String ruin = "";
-                            try {
-                                java.lang.reflect.Field sf = re.getClass().getDeclaredField("senderUin");
-                                sf.setAccessible(true);
-                                Object su = sf.get(re);
-                                if (su != null && !su.toString().isEmpty()) ruin = su.toString();
-                            } catch (Exception ex2) { }
+                            try { java.lang.reflect.Field sf = re.getClass().getDeclaredField("senderUin"); sf.setAccessible(true); Object su = sf.get(re); if (su != null && !su.toString().isEmpty()) ruin = su.toString(); } catch (Exception ex2) { }
                             quotedUin = ruin;
-                            try {
-                                java.lang.reflect.Field sf = re.getClass().getDeclaredField("sourceMsgText");
-                                sf.setAccessible(true);
-                                Object src = sf.get(re);
-                                if (src != null && !src.toString().isEmpty()) { quotedText = sewardenClean(src.toString()); }
-                            }
-                            catch (Exception ex2) { }
+                            try { java.lang.reflect.Field sf = re.getClass().getDeclaredField("sourceMsgText"); sf.setAccessible(true); Object src = sf.get(re); if (src != null && !src.toString().isEmpty()) { quotedText = sewardenClean(src.toString()); } } catch (Exception ex2) { }
                             break;
                         }
                     }
@@ -3639,6 +3702,8 @@ public void onMsg(Object msg) {
         } catch (Exception ignored) { }
         
         List lctx = getAiContext(peerUin, chatType);
+        
+        // 如果有引用，注入被引用者身份 + 被引用原文
         if (!quotedText.isEmpty() && !quotedUin.isEmpty()) {
             String quotedRole = getRole(quotedUin);
             String quotedName = getMemberName(chatType, peerUin, quotedUin);
@@ -3658,11 +3723,15 @@ public void onMsg(Object msg) {
             m2.put("_ts", System.currentTimeMillis());
             lctx.add(m2);
         }
+        
+        // 注入当前发言者身份
         Map m3 = new HashMap();
         m3.put("role", "system");
         m3.put("content", "<t>" + getCurrentTime() + "</t><s><user uin=\"" + senderUin + "\" access=\"" + userRole + "\" display=\"" + senderName + "\" /></s>");
         m3.put("_ts", System.currentTimeMillis());
         lctx.add(m3);
+        
+        // 记录用户消息
         Map m4 = new HashMap();
         m4.put("role", "user");
         m4.put("name", senderUin);
@@ -3670,9 +3739,11 @@ public void onMsg(Object msg) {
         m4.put("_ts", System.currentTimeMillis());
         lctx.add(m4);
 
+        
         saveCtxToDisk(peerUin, chatType);
         return;
     }
+    // 唤醒词路由
     if (!aiProcessing && !trimmed.startsWith("/") && startsWithWakeWord(trimmed)) {
         if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
             return;
@@ -3796,3 +3867,31 @@ public void onMsg(Object msg) {
         onMainThread--;
     }
 }
+
+/*
+ *  墨鸦 Strata v4.4.0
+ *  轻量级 Agentic RAG — 群聊 AI 记忆助手
+ *
+ *  Author:  YiJieqwq异界
+ *
+ *  MIT License
+ *  Copyright (c) 2026 YiJieqwq异界
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ */
