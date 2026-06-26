@@ -2430,6 +2430,10 @@ String vfsReadEtc(String path) {
 }
 String vfsWriteEtc(String path, String content, boolean append) {
     String real = vfsMapEtcPath(path);
+    // /etc/ 只允许修改已有文件，不允许新建
+    if (!new File(real).exists()) {
+        return "[只读: 系统路径不允许新建文件, 只能修改已有配置]";
+    }
     return writeFileString(real, content, append);
 }
 
