@@ -1050,14 +1050,29 @@ void saveCtxToDisk(String peerUin, int chatType) {
     } catch (Exception e) { this.log("error.txt", "saveCtx: " + e.getMessage()); }
 }
 
+void trimCtx(List ctx) {
+    int ctxLimit = 60;
+    try { ctxLimit = Integer.parseInt(getAiConfig("context_limit")); } catch (Exception e) { }
+    while (ctx.size() > ctxLimit * 2) {
+        ctx.remove(0);
+    }
+    // 清除开头的孤立 tool 消息（前置 assistant+tool_calls 已被截断）
+    while (!ctx.isEmpty()) {
+        Map first = (Map) ctx.get(0);
+        if ("tool".equals(first.get("role"))) {
+            ctx.remove(0);
+        } else {
+            break;
+        }
+    }
+}
+
 void addToContext(List ctx, String role, String content, String name) {
     Map m = new HashMap();
     m.put("role", role); m.put("content", content);
     if (name != null) m.put("name", name);
     m.put("_ts", System.currentTimeMillis()); ctx.add(m);
-    int ctxLimit = 60;
-    try { ctxLimit = Integer.parseInt(getAiConfig("context_limit")); } catch (Exception e) { }
-    while (ctx.size() > ctxLimit * 2) ctx.remove(0);
+    trimCtx(ctx);
 }
 
 void addToContextTC(List ctx, String role, String content, String name, JSONArray toolCalls, String toolCallId) {
@@ -1067,9 +1082,7 @@ void addToContextTC(List ctx, String role, String content, String name, JSONArra
     if (toolCalls != null) m.put("tool_calls", toolCalls);
     if (toolCallId != null) m.put("tool_call_id", toolCallId);
     m.put("_ts", System.currentTimeMillis()); ctx.add(m);
-    int ctxLimit = 60;
-    try { ctxLimit = Integer.parseInt(getAiConfig("context_limit")); } catch (Exception e) { }
-    while (ctx.size() > ctxLimit * 2) ctx.remove(0);
+    trimCtx(ctx);
 }
 
 // ==================== AI 调用 ====================
