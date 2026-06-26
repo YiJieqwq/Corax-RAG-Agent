@@ -1171,7 +1171,7 @@ void handleAi(Object msg, String prompt) {
         sendStyledHeader(msg, "INFO", "当前会话: AI " + (en.contains(peerUin + "_" + chatType) ? "已启用" : "未启用")); return;
     }
     if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
-        if (debug) sendStyledHeader(msg, "INFO", "AI 未启用，发送 /ai on 启用"); return;
+        if (debug) { sendStyledHeader(msg, "INFO", "AI 未启用，发送 /ai on 启用"); return; }
     }
     if (!canUseAi(senderUin)) {
         sendStyledHeader(msg, "ERROR", "没有 AI 权限"); return;
@@ -3090,7 +3090,11 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             String path = args[0];
             String content = vfsRead(path, senderUin, peerUin, chatType);
             if (content.startsWith("[路径不存在")) { return content; }
-            boolean isDir = !content.contains(":") && (content.startsWith("bin") || content.startsWith("proc") || content.startsWith("etc") || content.startsWith("dev") || content.startsWith("ctx") || content.startsWith("var") || content.startsWith("src") || content.startsWith("tmp") || content.startsWith("persist") || content.startsWith("usr"));
+            boolean isDir = false;
+            if (content.startsWith("bin") || content.startsWith("proc") || content.startsWith("etc")) isDir = true;
+            if (content.startsWith("dev") || content.startsWith("ctx") || content.startsWith("var")) isDir = true;
+            if (content.startsWith("src") || content.startsWith("tmp") || content.startsWith("persist")) isDir = true;
+            if (content.startsWith("usr")) isDir = true;
             String perms = "/proc/sys/ api_key RO; 其余 RW";
             if (path.startsWith("/src/")) perms = "RO (源码只读)";
             else if (path.startsWith("/proc/")) perms = "部分 RO, 部分 RW";
