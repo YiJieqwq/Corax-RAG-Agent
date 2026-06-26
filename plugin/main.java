@@ -1567,7 +1567,7 @@ dumpMsgs.put(dj);
                                 try { Thread.sleep(150); } catch (Exception ignored) { }
                             }
                         }
-                        addToContextTC(ctx, "assistant", r2c, null, sr2tc, null);
+                        addToContext(ctx, "assistant", r2c, null);
                     }
                 }
                 break;
@@ -1590,7 +1590,7 @@ dumpMsgs.put(dj);
                             try { Thread.sleep(150); } catch (Exception ignored) { }
                         }
                     }
-                    addToContextTC(ctx, "assistant", r2c, null, sr2tc, null);
+                    addToContext(ctx, "assistant", r2c, null);
                 } else if (!hasSentReply) {
                     // AI 返回空内容，静默跳过（shell 模式下正常）
                     hasSentReply = true;
@@ -1602,6 +1602,7 @@ dumpMsgs.put(dj);
                     asstTC2.put("tool_calls", sr2tc);
                     ai2Msgs.put(asstTC2);
                 }
+                if (!r2c.isEmpty()) addToContextTC(ctx, "assistant", r2c, null, sr2tc, null);
                 if (sr2tc != null) for (int i = 0; i < sr2tc.length(); i++) {
                     JSONObject rtc = sr2tc.getJSONObject(i);
                     String rfn = rtc.getJSONObject("function").getString("name");
