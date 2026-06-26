@@ -1590,7 +1590,6 @@ dumpMsgs.put(dj);
                             try { Thread.sleep(150); } catch (Exception ignored) { }
                         }
                     }
-                    addToContext(ctx, "assistant", r2c, null);
                 } else if (!hasSentReply) {
                     // AI 返回空内容，静默跳过（shell 模式下正常）
                     hasSentReply = true;
