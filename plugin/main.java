@@ -1391,7 +1391,7 @@ dumpMsgs.put(dj);
     if (!quotedText.isEmpty()) {
         String quotedRole = getRole(quotedUin);
         String quotedName = getMemberName(chatType, peerUin, quotedUin);
-        quotedName = quotedName.replaceAll("[<{＜【\\\\[（(].*?[>}＞】\\\\]）)]", "")
+        quotedName = quotedName.replaceAll("[<{＜【\\[（(].*?[>}＞】\\]）)]", "")
                                .replaceAll("[,，:：;；]", "").trim();
         if (quotedName.isEmpty()) quotedName = quotedUin;
         sysCtx.append("<t>").append(getCurrentTime()).append("</t><s><user uin=\"").append(quotedUin)
