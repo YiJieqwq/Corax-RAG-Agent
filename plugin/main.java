@@ -2269,7 +2269,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     // directories
     if (path.equals("/bin/")) {
-        return "sed corax-edit corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-skill corax-listen corax-help";
+        return "touch rm mkdir chmod find sort uniq cut sed corax-edit corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-skill corax-listen stat corax-help";
     }
     if (path.equals("/")) {
         return "bin/  proc/  etc/  dev/  ctx/  var/  src/  tmp/  persist/  usr/";
@@ -3102,6 +3102,74 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             else if (path.startsWith("/etc/")) perms = "RW";
             int size = content.length();
             return "文件: " + path + "\n类型: " + (isDir ? "目录" : "文件") + "\n大小: " + size + " 字符\n权限: " + perms;
+        }
+        if (cmd.equals("touch")) {
+            if (args.length < 1) { return "用法: touch <文件路径>"; }
+            String path = args[0];
+            String ferr = vfsWrite(path, "", true, senderUin, peerUin, chatType);
+            return ferr != null ? ferr : "";
+        }
+        if (cmd.equals("rm")) {
+            if (args.length < 1) { return "用法: rm <文件路径>"; }
+            String path = args[0];
+            String err = vfsWrite(path, "", false, senderUin, peerUin, chatType);
+            return err != null ? err : "已删除";
+        }
+        if (cmd.equals("mkdir")) {
+            if (args.length < 1) { return "用法: mkdir <目录路径>"; }
+            String path = args[0];
+            if (!path.endsWith("/")) path += "/";
+            String err = vfsWrite(path, "(目录)", false, senderUin, peerUin, chatType);
+            return err != null ? err : "";
+        }
+        if (cmd.equals("chmod")) {
+            return "";
+        }
+        if (cmd.equals("find")) {
+            if (args.length < 2) { return "用法: find <目录> -name <模式>"; }
+            String dir = args[0];
+            String pattern = args.length > 2 && args[1].equals("-name") ? args[2] : "";
+            if (pattern.isEmpty()) { return "用法: find <目录> -name <模式>"; }
+            String listing = vfsRead(dir, senderUin, peerUin, chatType);
+            String[] entries = listing.split("\n");
+            StringBuilder sb = new StringBuilder();
+            for (int ei = 0; ei < entries.length; ei++) {
+                String e = entries[ei].trim();
+                if (e.isEmpty()) continue;
+                if (pattern.equals("*") || e.contains(pattern.replace("*", ""))) sb.append(dir).append(dir.endsWith("/") ? "" : "/").append(e).append("\n");
+            }
+            return sb.toString().trim();
+        }
+        if (cmd.equals("sort")) {
+            String[] lines = stdin.split("\n");
+            java.util.Arrays.sort(lines);
+            StringBuilder sb = new StringBuilder();
+            for (int si = 0; si < lines.length; si++) { if (!lines[si].trim().isEmpty()) sb.append(lines[si]).append("\n"); }
+            return sb.toString().trim();
+        }
+        if (cmd.equals("uniq")) {
+            String[] lines = stdin.split("\n");
+            StringBuilder sb = new StringBuilder();
+            String last = "";
+            for (int ui = 0; ui < lines.length; ui++) {
+                if (!lines[ui].equals(last) && !lines[ui].trim().isEmpty()) { sb.append(lines[ui]).append("\n"); last = lines[ui]; }
+            }
+            return sb.toString().trim();
+        }
+        if (cmd.equals("cut")) {
+            String delim = "\t"; int field = 1;
+            for (int ci = 0; ci < args.length; ci++) {
+                if (args[ci].equals("-d") && ci + 1 < args.length) { delim = args[ci + 1]; ci++; }
+                else if (args[ci].equals("-f") && ci + 1 < args.length) { try { field = Integer.parseInt(args[ci + 1]); } catch (Exception e) {} ci++; }
+            }
+            String[] lines = stdin.split("\n");
+            StringBuilder sb = new StringBuilder();
+            for (int li = 0; li < lines.length; li++) {
+                if (lines[li].trim().isEmpty()) continue;
+                String[] parts = delim.equals("\t") ? lines[li].split("\t") : lines[li].split(delim);
+                if (field > 0 && field <= parts.length) sb.append(parts[field - 1]).append("\n");
+            }
+            return sb.toString().trim();
         }
         if (cmd.equals("corax-help")) {
             return "Corax-Shell v4.4.0\n\n"
