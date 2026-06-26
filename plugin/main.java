@@ -1285,6 +1285,8 @@ void handleAi(Object msg, String prompt) {
            dj.put("role", dm.get("role"));
            dj.put("content", ctxContent);
            if (dm.get("name") != null) dj.put("name", dm.get("name"));
+           if (dm.get("tool_calls") != null) dj.put("tool_calls", dm.get("tool_calls"));
+           if (dm.get("tool_call_id") != null) dj.put("tool_call_id", dm.get("tool_call_id"));
 dumpMsgs.put(dj);
         }
 
@@ -1482,6 +1484,13 @@ dumpMsgs.put(dj);
     }
 
     if (ai2TCs != null && ai2TCs.length() > 0) {
+        // 注入 assistant+tool_calls，满足 tool 消息必须有前置 assistant 的要求
+        JSONObject asstTC = new JSONObject();
+        asstTC.put("role", "assistant");
+        asstTC.put("content", ai2Content != null ? ai2Content : "");
+        asstTC.put("tool_calls", ai2TCs);
+        ai2Msgs.put(asstTC);
+        
         List shellCalls = new ArrayList();
         for (int i = 0; i < ai2TCs.length(); i++) {
             JSONObject tc = ai2TCs.getJSONObject(i);
