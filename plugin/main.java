@@ -3888,7 +3888,7 @@ public void onMsg(Object msg) {
         if (aiProcessing) {
             return;
         }
-        String aiArg = trimmed.substring(3).trim();
+        String aiArg = trimmed.length() > 3 ? trimmed.substring(3).trim() : "";
         if (aiArg.isEmpty()) { sendStyledHeader(msg, "ERROR", "/ai <内容> / memory / debug / reboot / set / config / forget / off / on / status"); return; }
         handleAi(msg, aiArg); return;
     }
@@ -3897,7 +3897,7 @@ public void onMsg(Object msg) {
     }
     if (trimmed.startsWith("/setdefaultaccount")) {
         if (!getRole(senderUin).equals("OWNER")) { sendPermissionDenied(msg); return; }
-        String arg = trimmed.substring(19).trim();
+        String arg = trimmed.length() > 19 ? trimmed.substring(19).trim() : "";
         if (arg.startsWith("/")) arg = arg.substring(1).trim();
         if (arg.isEmpty() || (!arg.equals("member") && !arg.equals("blocked"))) { sendStyledHeader(msg, "ERROR", "/setdefaultaccount member/blocked"); return; }
         setDefaultAccountConfig(arg);
