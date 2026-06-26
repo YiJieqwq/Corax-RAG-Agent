@@ -1484,14 +1484,14 @@ dumpMsgs.put(dj);
                     }
                     Map ctxCmd = new HashMap(); ctxCmd.put("role", "system"); ctxCmd.put("content", "<cmd_done>" + cmd + "</cmd_done>"); ctxCmd.put("_ts", System.currentTimeMillis()); ctx.add(ctxCmd);
                     shellCalls.add(outText);
-                }
-                if (output.startsWith("[延时 ")) {
+                    if (output.startsWith("[延时 ")) {
                         addToContext(ctx, "assistant", "好的，延时任务已创建", null);
                         hasSentReply = true;
                         sendMsg(peerUin, "[AI] 延时任务已创建，到点自动执行", chatType);
                     }
                 }
             }
+            else if (fn.equals("call_skill")) skillCalls.add(tc);
             else if (fn.equals("toggle_listen")) {
                 boolean enable = getToolArg(tc, "enable").equals("true");
                 String key = peerUin + "_" + chatType;
