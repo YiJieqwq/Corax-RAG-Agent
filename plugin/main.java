@@ -2287,6 +2287,10 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     if (path.startsWith("/proc/") && path.contains("/status")) {
         return vfsReadProcStatus(path);
     }
+    if (path.startsWith("/proc/") && path.contains("/cmd")) {
+        Map job = (Map) delayJobs.get(Integer.parseInt(path.replace("/proc/", "").replace("/cmd", "").trim()));
+        return job != null ? String.valueOf(job.get("cmd")) : "[pid 不存在]";
+    }
     if (path.startsWith("/proc/") && path.contains("/stdout")) {
         return vfsReadProcStdout(path);
     }
@@ -2593,11 +2597,22 @@ String vfsReadProcPS() {
         String stat = t.isAlive() ? "S" : "Z";
         sb.append(en.getKey()).append("    ").append(stat).append("    corax-daemon\n");
     }
-    if (daemons.isEmpty()) sb.append("(无活跃任务)\n");
+    long now = System.currentTimeMillis();
+    for (Object e : delayJobs.entrySet()) {
+        Map.Entry en = (Map.Entry) e;
+        int pid = Integer.parseInt(String.valueOf(en.getKey()));
+        Map job = (Map) en.getValue();
+        long endMs = Long.parseLong(String.valueOf(job.get("end")));
+        String stat = "done".equals(job.get("status")) ? "D" : (now < endMs ? "P" : "T");
+        String cmd = String.valueOf(job.get("cmd"));
+        if (cmd.length() > 40) cmd = cmd.substring(0, 40) + "...";
+        sb.append(pid).append("    ").append(stat).append("    ").append(cmd).append("\n");
+    }
+    if (daemons.isEmpty() && delayJobs.isEmpty()) sb.append("(无活跃任务)\n");
     return sb.toString();
 }
 String vfsReadProcFree() {
-    return "daemons: " + daemons.size() + " / 10";
+    return "daemons: " + daemons.size() + "  delay: " + delayJobs.size();
 }
 String vfsReadProcUptime() {
     long uptime = (System.currentTimeMillis() - wsStartTime) / 1000;
@@ -2607,11 +2622,28 @@ String vfsReadProcStatus(String path) {
     try {
         String pidStr = path.replace("/proc/", "").replace("/status", "").trim();
         int pid = Integer.parseInt(pidStr);
+        // 先查 daemon
         Thread t = (Thread) daemons.get(pid);
-        if (t == null) {
-            return "[pid 不存在]";
+        if (t != null) {
+            return t.isAlive() ? "running" : "terminated";
         }
-        return t.isAlive() ? "running" : "terminated";
+        // 再查延时任务
+        Map job = (Map) delayJobs.get(pid);
+        if (job != null) {
+            String st = String.valueOf(job.get("status"));
+            long begin = Long.parseLong(String.valueOf(job.get("begin")));
+            long end = Long.parseLong(String.valueOf(job.get("end")));
+            long now = System.currentTimeMillis();
+            if ("done".equals(st)) {
+                return "done";
+            }
+            if (now >= end) {
+                return "overtime (scheduled: " + (end - begin) / 1000 + "s ago)";
+            }
+            long remain = (end - now) / 1000;
+            return "pending (remain: " + remain + "s, cmd: " + job.get("cmd") + ")";
+        }
+        return "[pid 不存在]";
     } catch (Exception e) { return "[解析失败]"; }
 }
 String vfsReadProcStdout(String path) {
@@ -2698,6 +2730,8 @@ String writeFileString(String path, String content, boolean append) {
 static Map daemons = java.util.Collections.synchronizedMap(new HashMap());
 static Map daemonOutputs = java.util.Collections.synchronizedMap(new HashMap());
 static int nextDaemonPid = 1;
+// 延时任务注册表 {pid: {cmd, begin, end, status}}
+static Map delayJobs = java.util.Collections.synchronizedMap(new LinkedHashMap());
 
 // 单行命令解析与执行
 String shellExecLine(String line, String senderUin, String peerUin, int chatType) {
@@ -2805,9 +2839,18 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         }
 
         if (delayMs > 0 && !execTokens.isEmpty()) {
-            StringBuilder preview = new StringBuilder();
-            for (int ei = 0; ei < Math.min(execTokens.size(), 6); ei++) { if (ei > 0) preview.append(" "); preview.append(execTokens.get(ei)); }
+            // 构建命令预览
+            StringBuilder cmdPreview = new StringBuilder();
+            for (int ei = 0; ei < Math.min(execTokens.size(), 6); ei++) { if (ei > 0) cmdPreview.append(" "); cmdPreview.append(execTokens.get(ei)); }
             final List st = new ArrayList(execTokens);
+            // 注册到进程表
+            final int jobPid = nextDaemonPid++;
+            Map job = new HashMap();
+            job.put("cmd", cmdPreview.toString());
+            job.put("begin", System.currentTimeMillis());
+            job.put("end", System.currentTimeMillis() + delayMs);
+            job.put("status", "pending");
+            delayJobs.put(jobPid, job);
             // 双保险：Timer精确 + 轮询兜底
             final Map task = new HashMap();
             task.put("at", System.currentTimeMillis() + delayMs);
@@ -2820,6 +2863,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
                 public void run() {
                     // 标记已触发，防止轮询重复执行
                     task.put("fired", Boolean.TRUE);
+                    job.put("status", "done");
                     // 投递到主线程执行，确保 sendMsg 能正常工作
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         public void run() {
@@ -2835,7 +2879,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
                     });
                 }
             }, delayMs);
-            return "[延时 " + (delayMs / 1000) + "s: " + preview.toString() + "]";
+            return "[延时 " + (delayMs / 1000) + "s: " + cmdPreview.toString() + "]";
         }
 
         final List daemonTokens = execTokens.isEmpty() ? bgTokens : execTokens;
