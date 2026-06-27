@@ -2818,96 +2818,131 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         final String bgPu = peerUin;
         final int bgCt = chatType;
 
-        // 提取 sleep 延时
-        long delayMs = 0;
-        List execTokens = new ArrayList();
+        // 按 sleep N 拆分为链式段 [{delayMs, execTokens}, ...]
+        // sleep 5 && cmd1 && sleep 10 && cmd2 → [{5, cmd1}, {10, cmd2}]
+        List segments = new ArrayList();
+        List curTokens = new ArrayList();
+        long curDelay = 0;
         for (int ti = 0; ti < bgTokens.size(); ti++) {
             String t = (String) bgTokens.get(ti);
             if (t.equals("sleep") && ti + 1 < bgTokens.size()) {
-                try { delayMs = Long.parseLong(((String) bgTokens.get(ti + 1)).replaceAll("[^0-9]", "")) * 1000L; }
-                catch (Exception ex) {}
+                if (!curTokens.isEmpty() || curDelay > 0) {
+                    Map seg = new HashMap();
+                    seg.put("delay", curDelay);
+                    seg.put("tokens", new ArrayList(curTokens));
+                    segments.add(seg);
+                    curTokens.clear();
+                }
+                try { curDelay = Long.parseLong(((String) bgTokens.get(ti + 1)).replaceAll("[^0-9]", "")) * 1000L; }
+                catch (Exception ex) { curDelay = 0; }
                 ti++;
                 continue;
             }
-            execTokens.add(t);
+            curTokens.add(t);
         }
-        // 去掉 sleep 后面紧跟的 && / ;
-        for (int ei = 0; ei < execTokens.size(); ei++) {
-            if ((execTokens.get(ei).equals("&&") || execTokens.get(ei).equals(";")) && ei + 1 < execTokens.size()) {
-                execTokens.remove(ei); ei--;
-            }
+        // 最后一段
+        if (!curTokens.isEmpty() || curDelay > 0) {
+            Map seg = new HashMap();
+            seg.put("delay", curDelay);
+            seg.put("tokens", new ArrayList(curTokens));
+            segments.add(seg);
         }
 
-        if (delayMs > 0 && !execTokens.isEmpty()) {
-            // 构建命令预览
-            StringBuilder cmdPreview = new StringBuilder();
-            for (int ei = 0; ei < Math.min(execTokens.size(), 6); ei++) { if (ei > 0) cmdPreview.append(" "); cmdPreview.append(execTokens.get(ei)); }
-            final List st = new ArrayList(execTokens);
-            // 注册到进程表
-            final int jobPid = nextDaemonPid++;
-            Map job = new HashMap();
-            job.put("cmd", cmdPreview.toString());
-            job.put("begin", System.currentTimeMillis());
-            job.put("end", System.currentTimeMillis() + delayMs);
-            job.put("status", "pending");
-            delayJobs.put(jobPid, job);
-            // 双保险：Timer精确 + 轮询兜底
-            final Map task = new HashMap();
-            task.put("at", System.currentTimeMillis() + delayMs);
-            task.put("tokens", new ArrayList(execTokens));
-            task.put("su", bgSu); task.put("pu", bgPu); task.put("ct", bgCt);
-            delayedTasks.add(task);
-            
-            if (delayTimer == null) delayTimer = new Timer(true);
-            delayTimer.schedule(new TimerTask() {
+        if (segments.isEmpty()) {
+            // 无延时，普通后台
+            final List finalTokens = new ArrayList(bgTokens);
+            final int p = nextDaemonPid++;
+            Thread t = new Thread(new Runnable() {
                 public void run() {
-                    // 标记已触发，防止轮询重复执行
-                    task.put("fired", Boolean.TRUE);
-                    job.put("status", "done");
-                    // 投递到主线程执行，确保 sendMsg 能正常工作
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         public void run() {
                             onMainThread++;
                             try {
                                 int[] ix = new int[]{0};
-                                parseSequence(st, ix, "", bgSu, bgPu, bgCt);
+                                parseSequence(finalTokens, ix, "", bgSu, bgPu, bgCt);
                             } catch (Exception e) {}
                             finally {
                                 onMainThread--;
+                                daemons.remove(p);
+                                daemonOutputs.remove(p);
                             }
                         }
                     });
                 }
-            }, delayMs);
-            return "[延时 " + (delayMs / 1000) + "s: " + cmdPreview.toString() + "]";
+            });
+            t.setDaemon(true); t.start();
+            daemons.put(p, t);
+            return "[pid:" + p + "]";
         }
 
-        final List daemonTokens = execTokens.isEmpty() ? bgTokens : execTokens;
-        final int p = nextDaemonPid++;
-        Thread t = new Thread(new Runnable() {
-            public void run() {
-                new Handler(Looper.getMainLooper()).post(new Runnable() {
-                    public void run() {
-                        onMainThread++;
-                        try {
-                            int[] ix = new int[]{0};
-                            parseSequence(daemonTokens, ix, "", bgSu, bgPu, bgCt);
-                        } catch (Exception e) {}
-                        finally {
-                            onMainThread--;
-                            daemons.remove(p);
-                            daemonOutputs.remove(p);
-                        }
-                    }
-                });
+        // 有延时段，构建链式调度
+        scheduleChain(segments, 0, bgSu, bgPu, bgCt);
+        // 构建预览
+        StringBuilder preview = new StringBuilder();
+        for (int si = 0; si < segments.size(); si++) {
+            Map seg = (Map) segments.get(si);
+            if (si > 0) preview.append("; ");
+            long d = Long.parseLong(String.valueOf(seg.get("delay")));
+            List toks = (List) seg.get("tokens");
+            preview.append("sleep ").append(d / 1000).append(" ");
+            for (int ti = 0; ti < Math.min(toks.size(), 3); ti++) {
+                preview.append(toks.get(ti)).append(" ");
             }
-        });
-        t.setDaemon(true); t.start();
-        daemons.put(p, t);
-        return "[pid:" + p + "]";
+            if (toks.size() > 3) preview.append("...");
+        }
+        return "[延时链: " + preview.toString().trim() + "]";
     }
 
         return result != null ? result : "";
+}
+
+// 链式调度延时任务段 [{delay, tokens}, ...]
+void scheduleChain(final List segments, final int index, final String bgSu, final String bgPu, final int bgCt) {
+    if (index >= segments.size()) return;
+    final Map seg = (Map) segments.get(index);
+    final long delayMs = Long.parseLong(String.valueOf(seg.get("delay")));
+    final List segTokens = (List) seg.get("tokens");
+    if (segTokens.isEmpty()) { scheduleChain(segments, index + 1, bgSu, bgPu, bgCt); return; }
+    // 清理首部 && / ;
+    while (!segTokens.isEmpty() && (segTokens.get(0).equals("&&") || segTokens.get(0).equals(";"))) {
+        segTokens.remove(0);
+    }
+    if (segTokens.isEmpty()) { scheduleChain(segments, index + 1, bgSu, bgPu, bgCt); return; }
+    // 注册到进程表
+    final int jobPid = nextDaemonPid++;
+    StringBuilder cmdPreview = new StringBuilder();
+    for (int ti = 0; ti < Math.min(segTokens.size(), 4); ti++) { if (ti > 0) cmdPreview.append(" "); cmdPreview.append(segTokens.get(ti)); }
+    Map job = new HashMap();
+    job.put("cmd", cmdPreview.toString());
+    job.put("begin", System.currentTimeMillis());
+    job.put("end", System.currentTimeMillis() + delayMs);
+    job.put("status", "pending");
+    delayJobs.put(jobPid, job);
+    // 双保险
+    final Map task = new HashMap();
+    task.put("at", System.currentTimeMillis() + delayMs);
+    task.put("tokens", new ArrayList(segTokens));
+    task.put("su", bgSu); task.put("pu", bgPu); task.put("ct", bgCt);
+    delayedTasks.add(task);
+    if (delayTimer == null) delayTimer = new Timer(true);
+    delayTimer.schedule(new TimerTask() {
+        public void run() {
+            task.put("fired", Boolean.TRUE);
+            job.put("status", "done");
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                public void run() {
+                    onMainThread++;
+                    try {
+                        int[] ix = new int[]{0};
+                        parseSequence(new ArrayList(segTokens), ix, "", bgSu, bgPu, bgCt);
+                    } catch (Exception e) {}
+                    finally { onMainThread--; }
+                }
+            });
+            // 调度下一段
+            scheduleChain(segments, index + 1, bgSu, bgPu, bgCt);
+        }
+    }, delayMs);
 }
 
 // 解析序列: pipeline ((; | && | ||) pipeline)*
