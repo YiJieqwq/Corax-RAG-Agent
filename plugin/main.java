@@ -997,6 +997,9 @@ List getAiContext(String peerUin, int chatType) {
                     m.put("role", j.getString("role"));
                     m.put("content", j.getString("content"));
                     if (j.has("name")) m.put("name", j.getString("name"));
+                    // 孤儿 tool 消息（缺少 tool_call_id）跳过，防止 API 400
+                    String r = j.getString("role");
+                    if ("tool".equals(r) && !j.has("tool_call_id")) continue;
                     if (j.has("tool_calls")) m.put("tool_calls", j.getJSONArray("tool_calls"));
                     if (j.has("tool_call_id")) m.put("tool_call_id", j.getString("tool_call_id"));
                     m.put("_ts", j.getLong("_ts"));
@@ -1406,6 +1409,16 @@ dumpMsgs.put(dj);
     // ctx: 只含历史（已是标准格式）
     for (int i = 0; i < ctx.size(); i++) {
         Map m = (Map) ctx.get(i);
+        // 兼容旧 ctx：孤儿 tool 消息前补一个虚拟 assistant
+        if ("tool".equals(m.get("role")) && m.get("tool_call_id") == null && m.get("content") != null) {
+            JSONObject dc = new JSONObject();
+            dc.put("role", "assistant");
+            dc.put("content", "");
+            dc.put("tool_calls", new JSONArray());
+            ai2Msgs.put(dc);
+            i--;
+            continue;
+        }
         JSONObject j = new JSONObject();
         j.put("role", m.get("role"));
         j.put("content", m.get("content"));
