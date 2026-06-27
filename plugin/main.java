@@ -1297,7 +1297,14 @@ void handleAi(Object msg, String prompt) {
     }
     
     
-    if (trimmed.equals("reboot") || trimmed.startsWith("reboot ")) { handleReboot(msg, trimmed, ctx); return; }
+    if (trimmed.equals("reboot") || trimmed.startsWith("reboot ")) {
+        handleReboot(msg, trimmed);
+        String newPersona = loadPersona();
+        if (!newPersona.isEmpty()) {
+            addToContext(ctx, "system", "现在你需要扮演以下角色，忘记之前的身份设定：\n\n" + newPersona, null);
+        }
+        return;
+    }
     if (trimmed.equals("debug") || trimmed.startsWith("debug ")) { handleDebug(msg, trimmed); return; }
     Map cfg = loadAiConfig();
     if (((String) cfg.get("api_key")).isEmpty()) {
@@ -1983,7 +1990,7 @@ List listPersonas() {
     return names;
 }
 
-void handleReboot(Object msg, String trimmed, List ctx) {
+void handleReboot(Object msg, String trimmed) {
     String[] rp = trimmed.split("\\s+", 2);
     if (rp.length == 1) {
         List personas = listPersonas();
@@ -1998,11 +2005,6 @@ void handleReboot(Object msg, String trimmed, List ctx) {
         File tf = new File(pluginPath + "/config/prompt/" + target + ".prompt.txt");
         if (!tf.exists()) { sendStyledHeader(msg, "ERROR", "人设 \"" + target + "\" 不存在"); return; }
         setActivePersona(target);
-        // 保留上下文，注入新人设说明
-        String newPersona = loadPersona();
-        if (!newPersona.isEmpty()) {
-            addToContext(ctx, "system", "现在你需要扮演以下角色，忘记之前的身份设定：\n\n" + newPersona, null);
-        }
         sendStyledHeader(msg, "SUCCESS", "已切换至: " + target + "\n上下文已保留，新人设已注入。");
     }
     aiProcessing = false;
