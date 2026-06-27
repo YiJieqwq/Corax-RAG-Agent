@@ -206,7 +206,7 @@ Corax-RAG-Agent/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── plugin/
-│   └── main.java              # 核心插件（单文件）
+│   └── main.java              # 唯一运行/发布入口（核心插件单文件）
 ├── skills/                     # 技能文件
 │   ├── rootmanagers.skill.txt
 │   └── 春秋检测常见检测项.skill.txt

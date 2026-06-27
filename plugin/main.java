@@ -2321,9 +2321,9 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     if (path.startsWith("/persist/")) {
         return vfsReadPersist(path);
     }
-    // /src/
-    if (path.equals("/src/main.java")) {
-        return vfsReadSrc();
+    // /src/ — 出于安全考虑，源码不可读取
+    if (path.startsWith("/src/")) {
+        return "[拒绝: 源码不可读取]";
     }
     // /tmp/
     if (path.startsWith("/tmp/")) {
@@ -2383,7 +2383,25 @@ String vfsNorm(String p) {
     // 去掉 // /./ /../
     while (p.contains("//")) p = p.replace("//", "/");
     while (p.contains("/./")) p = p.replace("/./", "/");
+    // 解析 /../ 路径穿越：逐段处理
+    while (p.contains("/../")) {
+        int idx = p.indexOf("/../");
+        if (idx == 0) {
+            p = p.substring(3);
+        } else {
+            int prev = p.lastIndexOf("/", idx - 1);
+            if (prev < 0) prev = 0;
+            p = p.substring(0, prev) + p.substring(idx + 3);
+        }
+    }
+    while (p.endsWith("/..")) {
+        p = p.substring(0, p.length() - 3);
+        int lastSlash = p.lastIndexOf("/");
+        if (lastSlash >= 0) p = p.substring(0, lastSlash);
+        else p = "/";
+    }
     if (!p.startsWith("/")) p = "/" + p;
+    if (p.isEmpty()) p = "/";
     return p;
 }
 
@@ -2529,19 +2547,23 @@ String vfsReadVarLog(String path) {
 }
 
 // ======= /dev/ =======
-// 消息总线 — 只读 FD，由 onMsg 注入
-static List msgBus = java.util.Collections.synchronizedList(new ArrayList());
+// 消息总线 — 按会话隔离，由 onMsg 注入
+static Map msgBus = java.util.Collections.synchronizedMap(new HashMap());
 static int onMainThread = 0;
 static List daemonOutQueue = java.util.Collections.synchronizedList(new ArrayList());
 static List delayedTasks = java.util.Collections.synchronizedList(new ArrayList());
 String vfsReadDev(String path, String peerUin, int chatType) {
     if (path.equals("/dev/msg-stream")) {
-        if (msgBus.isEmpty()) {
+        String sessionKey = peerUin + "_" + chatType;
+        List bus = (List) msgBus.get(sessionKey);
+        if (bus == null || bus.isEmpty()) {
             return "";
         }
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < msgBus.size(); i++) sb.append(msgBus.get(i)).append("\n");
-        msgBus.clear();
+        synchronized (bus) {
+            for (int i = 0; i < bus.size(); i++) sb.append(bus.get(i)).append("\n");
+            bus.clear();
+        }
         return sb.toString().trim();
     }
     return "[只写设备或不存在]";
@@ -2675,12 +2697,48 @@ String vfsWriteProcKill(String path) {
 
 // ======= /var/ =======
 String vfsWriteVarDb(String sql) {
-    // 白名单 SQL
+    // 严格白名单：只允许 SELECT 查询，禁止一切写操作
     String upper = sql.trim().toUpperCase();
-    if (upper.contains("DROP") || upper.contains("ALTER") || upper.contains("ATTACH") || upper.contains("VACUUM")) {
-        return "[拒绝: 不允许 DROP/ALTER/ATTACH/VACUUM]";
+    if (upper.contains("DROP") || upper.contains("ALTER") || upper.contains("ATTACH")
+        || upper.contains("VACUUM") || upper.contains("DELETE") || upper.contains("UPDATE")
+        || upper.contains("INSERT") || upper.contains("REPLACE") || upper.contains("CREATE")
+        || upper.contains("GRANT") || upper.contains("REVOKE") || upper.contains("PRAGMA")
+        || upper.contains("REINDEX") || upper.contains("SAVEPOINT") || upper.contains("RELEASE")
+        || upper.contains("ROLLBACK") || upper.contains("BEGIN") || upper.contains("COMMIT")
+        || upper.contains("TRUNCATE")) {
+        return "[拒绝: 仅允许 SELECT 查询]";
     }
-    try { getDb().execSQL(sql); return null; }
+    if (!upper.startsWith("SELECT") && !upper.startsWith("EXPLAIN")
+        && !upper.startsWith("WITH") && !upper.startsWith("DESCRIBE")) {
+        return "[拒绝: 仅允许 SELECT 查询]";
+    }
+    try {
+        Cursor c = getDb().rawQuery(sql, null);
+        StringBuilder sb = new StringBuilder();
+        int colCount = c.getColumnCount();
+        for (int i = 0; i < colCount; i++) {
+            if (i > 0) sb.append(" | ");
+            sb.append(c.getColumnName(i));
+        }
+        sb.append("\n");
+        for (int i = 0; i < colCount; i++) {
+            if (i > 0) sb.append("-+-");
+            sb.append("---");
+        }
+        sb.append("\n");
+        int rowCount = 0;
+        while (c.moveToNext() && rowCount < 50) {
+            for (int i = 0; i < colCount; i++) {
+                if (i > 0) sb.append(" | ");
+                sb.append(c.getString(i) != null ? c.getString(i) : "NULL");
+            }
+            sb.append("\n");
+            rowCount++;
+        }
+        if (rowCount >= 50) sb.append("... (truncated, max 50 rows)\n");
+        c.close();
+        return sb.toString().isEmpty() ? "(查询结果为空)" : sb.toString().trim();
+    }
     catch (Exception e) { return "[SQL错误: " + e.getMessage() + "]"; }
 }
 
@@ -2883,6 +2941,10 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         }
 
         final List daemonTokens = execTokens.isEmpty() ? bgTokens : execTokens;
+        // daemon 数量限制：最多 10 个
+        if (daemons.size() >= 10) {
+            return "[拒绝: daemon 数量已达上限 10，请先 kill 旧任务]";
+        }
         final int p = nextDaemonPid++;
         Thread t = new Thread(new Runnable() {
             public void run() {
@@ -3360,15 +3422,33 @@ String formatMemList(List results, boolean isPublic) {
 }
 
 // 加载技能内容
+// 加载技能内容（shell 用，仅允许字母数字汉字下划线连字符）
 String loadSkillContent(String name) {
+    // 白名单校验 skill 名称，拒绝路径穿越字符
+    if (name == null || name.isEmpty() || name.contains("/") || name.contains("\\")
+        || name.contains("..") || name.contains("\0")) {
+        return "[技能名无效: " + (name != null ? name : "null") + "]";
+    }
     if (!name.endsWith(".skill.txt")) name += ".skill.txt";
-    return readFileString(pluginPath + "/config/skills/" + name);
+    String safePath = pluginPath + "/config/skills/" + name;
+    // 二次确认路径仍位于 skills 目录内
+    if (!safePath.startsWith(pluginPath + "/config/skills/")) {
+        return "[拒绝: 路径越界]";
+    }
+    return readFileString(safePath);
 }
 
 // 消息总线注入 — onMsg 调用
-void vfsPushMsgBus(String msgJson) {
-    msgBus.add(msgJson);
-    if (msgBus.size() > 100) msgBus.remove(0);
+// 消息总线注入 — onMsg 调用，按会话隔离
+void vfsPushMsgBus(String msgJson, String peerUin, int chatType) {
+    String sessionKey = peerUin + "_" + chatType;
+    List bus = (List) msgBus.get(sessionKey);
+    if (bus == null) {
+        bus = java.util.Collections.synchronizedList(new ArrayList());
+        msgBus.put(sessionKey, bus);
+    }
+    bus.add(msgJson);
+    if (bus.size() > 100) bus.remove(0);
 }
 
 
@@ -3947,7 +4027,7 @@ public void onMsg(Object msg) {
     String msgJson = "{\"from\":\"" + senderUin + "\",\"text\":\""
         + text.replace("\"", "\\\"").replace("\n", " ").substring(0, Math.min(text.length(), 200))
         + "\",\"to\":\"" + peerUin + "\",\"type\":" + chatType + ",\"time\":\"" + getCurrentTime() + "\"}";
-    vfsPushMsgBus(msgJson);
+    vfsPushMsgBus(msgJson, peerUin, chatType);
     String trimmed = text.trim();
     
     // SEWarden: 清洗用户输入中的系统标签
