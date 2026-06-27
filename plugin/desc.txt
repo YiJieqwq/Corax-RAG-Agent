@@ -12,7 +12,7 @@
 
 默认值（可用 /ai set 更改）：
 model = deepseek-v4-flash (可随意修改)
-context_ttl = 60（对话保留一小时）
+context_ttl = 0（不限制，设为分钟数则超时清空）
 context_limit = 60（保留最新60轮）
 ai_url = https://api.deepseek.com (同时支持OpenAI)
 search_provider = tavily (同时支持博查＆Bing)

@@ -974,7 +974,7 @@ List getAiContext(String peerUin, int chatType) {
     long ttl = 30 * 60 * 1000L;
     try { ttl = Long.parseLong(getAiConfig("context_ttl")) * 60 * 1000L; } catch (Exception e) { }
     long now = System.currentTimeMillis();
-    if (ctx != null && !ctx.isEmpty()) {
+    if (ttl > 0 && ctx != null && !ctx.isEmpty()) {
         Map last = (Map) ctx.get(ctx.size() - 1);
         Long ts = (Long) last.get("_ts");
         if (ts != null && (now - ts) > ttl) { aiContexts.remove(key); ctx = null; }
@@ -1554,7 +1554,6 @@ dumpMsgs.put(dj);
                         if (output.startsWith("[延时 ")) {
                             addToContext(ctx, "assistant", "好的，延时任务已创建", null);
                             hasSentReply = true;
-                            sendMsg(peerUin, "[AI] 延时任务已创建，到点自动执行", chatType);
                         } else {
                             shellCalls.add(output);
                         }
@@ -1716,7 +1715,7 @@ Map loadAiConfig() {
     Map cfg = new LinkedHashMap();
     cfg.put("api_key", "");
     cfg.put("model", "deepseek-v4-flash");
-    cfg.put("context_ttl", "60");
+    cfg.put("context_ttl", "0");
     cfg.put("context_limit", "60");
     cfg.put("ai_url", "https://api.deepseek.com");
     cfg.put("search_provider", "tavily");
