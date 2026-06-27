@@ -3265,6 +3265,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             setActivePersona(target);
             return "已切换至: " + target + "（上下文已保留，新人设将在下条消息生效）";
         }
+        if (cmd.equals("ps")) {
+            return vfsRead("/proc/ps", senderUin, peerUin, chatType);
+        }
         if (cmd.equals("stat")) {
             if (args.length < 1) {
                 return "用法: stat <路径>";
