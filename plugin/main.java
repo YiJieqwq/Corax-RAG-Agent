@@ -3959,6 +3959,15 @@ public void onMsg(Object msg) {
             String outMsg = "[Output] " + parts[2];
             lastAssistantMsg = outMsg;
             sendMsg(parts[0], outMsg, Integer.parseInt(parts[1]));
+            // 持久化到 ctx，让 AI 回头看时可见
+            List dctx = getAiContext(parts[0], Integer.parseInt(parts[1]));
+            if (dctx != null) {
+                Map dm = new HashMap();
+                dm.put("role", "system");
+                dm.put("content", "<t>" + getCurrentTime() + "</t><output>" + parts[2] + "</output>");
+                dm.put("_ts", System.currentTimeMillis());
+                dctx.add(dm);
+            }
             sent++;
         }
     }
