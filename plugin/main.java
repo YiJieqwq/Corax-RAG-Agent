@@ -1587,6 +1587,7 @@ dumpMsgs.put(dj);
                             addToContext(ctx, "assistant", "好的，延时任务已创建", null);
                             hasSentReply = true;
                         } else {
+                            addToContextTC(ctx, "tool", output, null, null, tcid);
                             shellCalls.add(output);
                         }
                     }
@@ -1691,6 +1692,7 @@ dumpMsgs.put(dj);
                                 srm.put("content", "<shell_output>\n" + out + "\n</shell_output>\n继续基于以上输出处理。如果需要发送消息给用户，必须使用 > /dev/out 重定向。");
                                 ai2Msgs.put(srm);
                                 if (!out.startsWith("[延时 ")) {
+                                    addToContextTC(ctx, "tool", out, null, null, rtcid);
                                     shellCalls.add(out);
                                 }
                             }
