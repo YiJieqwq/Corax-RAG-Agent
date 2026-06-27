@@ -2004,6 +2004,7 @@ List listPersonas() {
 }
 
 void handleReboot(Object msg, String trimmed) {
+    if (!requireAdminOrOwner(msg)) return;
     String[] rp = trimmed.split("\\s+", 2);
     if (rp.length == 1) {
         List personas = listPersonas();
@@ -2024,6 +2025,7 @@ void handleReboot(Object msg, String trimmed) {
 }
 
 void handleDebug(Object msg, String trimmed) {
+    if (!requireAdminOrOwner(msg)) return;
     String[] dp = trimmed.split("\\s+");
     if (dp.length == 1) { sendStyledHeader(msg, "INFO", "debug = " + getAiConfig("debug")); }
     else if (dp[1].equals("0") || dp[1].equals("1")) { Map cfg = loadAiConfig(); cfg.put("debug", dp[1]); saveAiConfig(cfg); sendStyledHeader(msg, "INFO", "debug = " + dp[1]); }
