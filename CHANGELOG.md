@@ -1,19 +1,28 @@
 # Changelog
-## v4.4.0 — Workspace
+## v5.0.0 — Corvus
 ### Features
-- **Corax-Shell**: 虚拟文件系统 + 单一 shell(cmd) 工具替代全部 FC 工具
-- 支持管道(|)、重定向(>)、后台(&)，提供 ls/cat/echo/grep/wc/head/tail/date/sleep 等内置命令
-- /proc/sys/ 系统属性读写，/etc/ 名单/配置管理，/dev/msg-stream 消息总线，/dev/out 消息输出
-- /persist/ 持久化存储，/tmp/ 临时工作区，daemon 后台任务
-- corax-mem-* 记忆管理，corax-search/corax-fetch 联网，corax-listen 监听控制
-- /proc/prompt/ 人设槽位（A/B 分区，激活槽只读）
+- **链式延时任务**：sleep N 拆成 Timer 分段，精准延时不再阻塞主线程
+- **延时任务注册表**：/proc/ps 可见，/proc/<pid>/status 和 /proc/<pid>/cmd 可查
+- **corax-sendfile**：从 shell 发送文件到聊天，主线程安全投递
+- **新内置命令**：ps / stat / touch / rm / mkdir / chmod / find / sort / uniq / cut
+- mkdir 在 /persist/ 下创建真实目录
+- Shell 命令不存在时提示"查看可用命令: corax-help"
 
 ### Bug Fixes
-- 修复 BeanShell 把 log() 误判为变量声明导致静默崩溃
-- 消息队列：AI 处理中收到的消息不再丢弃，FIFO 缓存最多 20 条
+- **工具持久化修复**：tool 结果完整保留到 ctx，加载时兼容旧格式孤儿 tool
+- **延时任务输出落 ctx**：AI 回头看对话可见延时任务结果
+- **鉴权重补**：handleDebug / handleReboot 加上 requireAdminOrOwner
+- **ls 安全修复**：只显示文件元数据，不读内容（防止 mp4 乱码污染 AI）
+- **cat 二进制保护**：大文件/二进制拒绝读取
+- **超长行拆分**：BeanShell 250 字符限制兼容
+- **全量 if-return/break/continue 展开**：三行花括号，不再静默崩溃
+- **一行花括号 if-return 拆行**：`if (a < 1) { return "x"; }` → 三行
 
-### Removed
-- 移除定时提醒系统（由 shell daemon 替代）
+### Changed
+- skill 文件迁移到 /persist/（corax-skill 命令移除）
+- 系统提示词精简，架构说明改为引导查阅 /persist/DevDocs.md
+- /ai off 下所有非 /ai on 指令完全静默
+- OpenAI 标准消息格式：assistant + tool_calls → tool → 完整 ctx 持久化
 
 ## v4.3.2
 ### Features
