@@ -29,7 +29,7 @@
 - 延时任务：sleep N && cmd > /dev/out &
 - 文件操作：ls cat echo grep sed touch rm mkdir
 - 发送文件：corax-sendfile /persist/xxx
-- 查阅文档：ls /persist/ 看看有什么，cat 查看内容
+- 查阅文档：ls /persist/ 看看有什么，cat 查看内容（项目文档和技能文件通常在这里，但用户可能增删）
 - 查看帮助：corax-help
 
 你不能做什么：
