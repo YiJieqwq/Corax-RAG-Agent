@@ -45,8 +45,6 @@ static String lastAssistantMsg = null;
 static String quotedUin = "";
 static String patOperatorUin = null;
 static String patPeerUin = null;
-static Map skillContentCache = null;
-static Map skillContentMtime = null;
 static long skillsDirMtime = 0;
 
 // ==================== SQLite ====================
@@ -80,9 +78,6 @@ SQLiteDatabase getDb() {
         try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN weight INTEGER NOT NULL DEFAULT 1"); } catch (Exception ignored) { }
         try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0"); } catch (Exception ignored) { }
         try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN credibility INTEGER NOT NULL DEFAULT 8"); } catch (Exception ignored) { }
-        try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_peer_uin TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
-        try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_chat_type INTEGER NOT NULL DEFAULT 0"); } catch (Exception ignored) { }
-        try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_msg_id TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
         try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_text TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
         sharedDb.execSQL(
             "CREATE TABLE IF NOT EXISTS tag_pool (" +
@@ -247,35 +242,6 @@ String loadSkills() {
     cachedSkills = sb.toString().trim();
     skillsDirMtime = latestMtime;
     return cachedSkills;
-}
-
-// 加载指定 skill 的完整内容
-String loadSkillContent(String skillName) {
-    File f = new File(pluginPath + "/config/skills/" + skillName + ".skill.txt");
-    if (!f.exists()) {
-        return "";
-    }
-    long mtime = f.lastModified();
-    if (skillContentCache == null) { skillContentCache = new HashMap(); skillContentMtime = new HashMap(); }
-    Long cachedMtime = (Long) skillContentMtime.get(skillName);
-    if (cachedMtime != null && cachedMtime == mtime) {
-        return (String) skillContentCache.get(skillName);
-    }
-    try {
-        BufferedReader br = new BufferedReader(new FileReader(f));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        boolean first = true;
-        while ((line = br.readLine()) != null) {
-            if (first) { first = false; continue; }
-            sb.append(line).append("\n");
-        }
-        br.close();
-        String content = sb.toString().trim();
-        skillContentCache.put(skillName, content);
-        skillContentMtime.put(skillName, mtime);
-        return content;
-    } catch (Exception e) { return ""; }
 }
 
 // ==================== 默认账户 ====================
@@ -566,9 +532,6 @@ boolean storeMemoryWithSource(String uin, String content, String tags, String sc
         cv.put("weight", 1);
         cv.put("pinned", 0);
         cv.put("credibility", cred);
-        cv.put("source_peer_uin", sourcePeerUin != null ? sourcePeerUin : "");
-        cv.put("source_chat_type", sourceChatType);
-        cv.put("source_msg_id", sourceMsgId != null ? sourceMsgId : "");
         cv.put("source_text", sourceText != null ? sourceText : "");
         long id = getDb().insert("memories", null, cv);
         if (id != -1) {
@@ -731,7 +694,7 @@ Map getMemoryDetail(long id) {
     try {
         c = getDb().rawQuery(
             "SELECT id, uin, content, tags, scope, subject_uin, weight, pinned, credibility, created_at, accessed_at, " +
-            "source_peer_uin, source_chat_type, source_msg_id, source_text FROM memories WHERE id = ?",
+            "source_text FROM memories WHERE id = ?",
             new String[]{String.valueOf(id)});
         if (c.moveToFirst()) {
             Map m = new HashMap();
@@ -746,10 +709,7 @@ Map getMemoryDetail(long id) {
             m.put("credibility", c.getInt(8));
             m.put("createdAt", c.getLong(9));
             m.put("accessedAt", c.getLong(10));
-            m.put("sourcePeerUin", c.getString(11) != null ? c.getString(11) : "");
-            m.put("sourceChatType", c.getInt(12));
-            m.put("sourceMsgId", c.getString(13) != null ? c.getString(13) : "");
-            m.put("sourceText", c.getString(14) != null ? c.getString(14) : "");
+            m.put("sourceText", c.getString(11) != null ? c.getString(11) : "");
             return m;
         }
     } catch (Exception e) { this.log("error.txt", "getMemoryDetail: " + e.getMessage()); }
@@ -3639,23 +3599,6 @@ String formatMemList(List results, boolean isPublic) {
     return sb.toString().trim();
 }
 
-// 加载技能内容
-// 加载技能内容（shell 用，仅允许字母数字汉字下划线连字符）
-String loadSkillContent(String name) {
-    // 白名单校验 skill 名称，拒绝路径穿越字符
-    if (name == null || name.isEmpty() || name.contains("/") || name.contains("\\")
-        || name.contains("..") || name.contains("\0")) {
-        return "[技能名无效: " + (name != null ? name : "null") + "]";
-    }
-    if (!name.endsWith(".skill.txt")) name += ".skill.txt";
-    String safePath = pluginPath + "/config/skills/" + name;
-    // 二次确认路径仍位于 skills 目录内
-    if (!safePath.startsWith(pluginPath + "/config/skills/")) {
-        return "[拒绝: 路径越界]";
-    }
-    return readFileString(safePath);
-}
-
 // 消息总线注入 — onMsg 调用
 // 消息总线注入 — onMsg 调用，按会话隔离
 void vfsPushMsgBus(String msgJson, String peerUin, int chatType) {
@@ -3922,14 +3865,8 @@ void handleAiMemory(Object msg, String args) {
         String recordRole = getRole(recordUin);
         String subject = (String) m.get("subjectUin");
         if (subject == null || subject.isEmpty()) subject = recordUin;
-        String subjectRole = (String) m.get("subjectRole");
-        if (subjectRole == null || subjectRole.isEmpty()) subjectRole = getRole(subject);
-        String assertionType = (String) m.get("assertionType");
-        if (assertionType == null || assertionType.isEmpty()) assertionType = calcAssertionType(recordUin, subject);
-        String sourceSender = (String) m.get("sourceSenderUin");
-        if (sourceSender == null || sourceSender.isEmpty()) sourceSender = recordUin;
-        String sourceSenderRole = (String) m.get("sourceSenderRole");
-        if (sourceSenderRole == null || sourceSenderRole.isEmpty()) sourceSenderRole = getRole(sourceSender);
+        String subjectRole = getRole(subject);
+        String assertionType = calcAssertionType(recordUin, subject);
 
         StringBuilder sb = new StringBuilder();
         sb.append("[记忆详情] #").append(m.get("id")).append("\n");
@@ -3943,15 +3880,6 @@ void handleAiMemory(Object msg, String args) {
         if (Integer.parseInt(String.valueOf(m.get("pinned"))) == 1) sb.append(" 已置顶");
         sb.append("\n创建: ").append(fmtTime(Long.parseLong(String.valueOf(m.get("createdAt")))));
         sb.append("\n最近命中: ").append(fmtTime(Long.parseLong(String.valueOf(m.get("accessedAt")))));
-        String sp = (String) m.get("sourcePeerUin");
-        if (sp != null && !sp.isEmpty()) {
-            sb.append("\n来源消息: ").append(Integer.parseInt(String.valueOf(m.get("sourceChatType"))) == 2 ? "群聊" : "私聊").append(" ").append(sp);
-            String smid = (String) m.get("sourceMsgId");
-            if (smid != null && !smid.isEmpty()) sb.append(" msgId=").append(smid);
-            sb.append("\n来源发送者: ").append(sourceSender).append("(").append(sourceSenderRole).append(")");
-        } else {
-            sb.append("\n来源消息: 旧数据或内部写入，未记录");
-        }
         String st = (String) m.get("sourceText");
         if (st != null && !st.isEmpty()) {
             if (st.length() > 600) st = st.substring(0, 600) + "...";
