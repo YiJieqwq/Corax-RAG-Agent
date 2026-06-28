@@ -1114,6 +1114,9 @@ List getAiContext(String peerUin, int chatType) {
                     m.put("role", j.getString("role"));
                     m.put("content", j.getString("content"));
                     if (j.has("name")) m.put("name", j.getString("name"));
+                    // 孤儿 tool 消息（缺少 tool_call_id）跳过，防止 API 400
+                    String r = j.getString("role");
+                    if ("tool".equals(r) && !j.has("tool_call_id")) continue;
                     if (j.has("tool_calls")) m.put("tool_calls", j.getJSONArray("tool_calls"));
                     if (j.has("tool_call_id")) m.put("tool_call_id", j.getString("tool_call_id"));
                     m.put("_ts", j.getLong("_ts"));
@@ -1331,7 +1334,8 @@ void handleAi(Object msg, String prompt) {
         sendStyledHeader(msg, "INFO", "当前会话: AI " + (en.contains(peerUin + "_" + chatType) ? "已启用" : "未启用")); return;
     }
     if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
-        if (debug) { sendStyledHeader(msg, "INFO", "AI 未启用，发送 /ai on 启用"); return; }
+        // AI off: 只有 /ai on 生效，其余全部忽略
+        return;
     }
     if (!canUseAi(senderUin)) {
         sendStyledHeader(msg, "ERROR", "没有 AI 权限"); return;
@@ -1527,6 +1531,16 @@ dumpMsgs.put(dj);
     // ctx: 只含历史（已是标准格式）
     for (int i = 0; i < ctx.size(); i++) {
         Map m = (Map) ctx.get(i);
+        // 兼容旧 ctx：孤儿 tool 消息前补一个虚拟 assistant
+        if ("tool".equals(m.get("role")) && m.get("tool_call_id") == null && m.get("content") != null) {
+            JSONObject dc = new JSONObject();
+            dc.put("role", "assistant");
+            dc.put("content", "");
+            dc.put("tool_calls", new JSONArray());
+            ai2Msgs.put(dc);
+            i--;
+            continue;
+        }
         JSONObject j = new JSONObject();
         j.put("role", m.get("role"));
         j.put("content", m.get("content"));
@@ -1555,9 +1569,6 @@ dumpMsgs.put(dj);
     // 私有记忆
     String privStrata = buildStrataContext(senderUin);
     if (!privStrata.isEmpty()) sysCtx.append(privStrata).append("\n");
-    // 技能
-    String skills = loadSkills();
-    if (!skills.isEmpty()) sysCtx.append("=== 可用技能 ===\n").append(skills).append("\n");
 
     // 当前场景
     sysCtx.append(chatType == 2 ? "群聊 群号:" + peerUin : "私聊").append(" 时间:").append(getCurrentTime()).append("\n");
@@ -1678,6 +1689,7 @@ dumpMsgs.put(dj);
                 cmd = (String) qr.get("cmd");
 
                 String output = shellExecLine(cmd, senderUin, peerUin, chatType);
+                if (output.isEmpty()) output = "[命令已执行，无输出]";
                 {
                     String tcid = tc.optString("id", "call_" + System.currentTimeMillis());
                     JSONObject sr = new JSONObject();
@@ -1686,17 +1698,16 @@ dumpMsgs.put(dj);
                         sr.put("tool_call_id", tcid);
                         sr.put("content", "[命令已执行，无输出]");
                         ai2Msgs.put(sr);
-                        addToContextTC(ctx, "tool", "", null, null, tcid);
                     } else {
                         sr.put("role", "tool");
                         sr.put("tool_call_id", tcid);
                         sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                         ai2Msgs.put(sr);
-                        addToContextTC(ctx, "tool", output, null, null, tcid);
                         if (output.startsWith("[延时 ")) {
                             addToContext(ctx, "assistant", "好的，延时任务已创建", null);
                             hasSentReply = true;
                         } else {
+                            addToContextTC(ctx, "tool", output, null, null, tcid);
                             shellCalls.add(output);
                         }
                     }
@@ -1785,7 +1796,7 @@ dumpMsgs.put(dj);
                     asstTC2.put("tool_calls", sr2tc);
                     ai2Msgs.put(asstTC2);
                 }
-                if (!r2c.isEmpty()) addToContextTC(ctx, "assistant", r2c, null, sr2tc, null);
+                addToContextTC(ctx, "assistant", r2c != null ? r2c : "", null, sr2tc, null);
                 if (sr2tc != null) for (int i = 0; i < sr2tc.length(); i++) {
                     JSONObject rtc = sr2tc.getJSONObject(i);
                     String rfn = rtc.getJSONObject("function").getString("name");
@@ -1795,7 +1806,8 @@ dumpMsgs.put(dj);
                             Map qr2 = stripQuietFlag(scmd);
                             scmd = (String) qr2.get("cmd");
                             String out = shellExecLine(scmd, senderUin, peerUin, chatType);
-                            if (!out.isEmpty()) {
+                            if (out.isEmpty()) out = "[命令已执行，无输出]";
+                            {
                                 String rtcid = rtc.optString("id", "rcall_" + System.currentTimeMillis());
                                 JSONObject srm = new JSONObject();
                                 srm.put("role", "tool");
@@ -2113,6 +2125,7 @@ List listPersonas() {
 }
 
 void handleReboot(Object msg, String trimmed) {
+    if (!requireAdminOrOwner(msg)) return;
     String[] rp = trimmed.split("\\s+", 2);
     if (rp.length == 1) {
         List personas = listPersonas();
@@ -2133,6 +2146,7 @@ void handleReboot(Object msg, String trimmed) {
 }
 
 void handleDebug(Object msg, String trimmed) {
+    if (!requireAdminOrOwner(msg)) return;
     String[] dp = trimmed.split("\\s+");
     if (dp.length == 1) { sendStyledHeader(msg, "INFO", "debug = " + getAiConfig("debug")); }
     else if (dp[1].equals("0") || dp[1].equals("1")) { Map cfg = loadAiConfig(); cfg.put("debug", dp[1]); saveAiConfig(cfg); sendStyledHeader(msg, "INFO", "debug = " + dp[1]); }
@@ -2454,7 +2468,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     // directories
     if (path.equals("/bin/")) {
-        return "touch rm mkdir chmod find sort uniq cut sed corax-edit corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-skill corax-listen corax-reboot stat corax-help";
+        return "touch rm mkdir chmod find sort uniq cut sed corax-edit corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-listen corax-sendfile corax-reboot stat corax-help";
     }
     if (path.equals("/")) {
         return "bin/  proc/  etc/  dev/  ctx/  var/  src/  tmp/  persist/  usr/";
@@ -2972,7 +2986,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
     boolean bg = tokens.size() > 0 && tokens.get(tokens.size() - 1).equals("&");
     if (bg) tokens.remove(tokens.size() - 1);
 
-    // 延时后台命令检测：sleep N && cmd & — 跳过同步执行，直接走延时
+    // 延时后台命令检测：sleep N && cmd &
     boolean hasDelay = false;
     if (bg) {
         for (int ti = 0; ti < tokens.size(); ti++) {
@@ -2984,14 +2998,6 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         }
     }
 
-    // ---- 递归下降解析器 ----
-    // 解析入口
-    int[] idx = new int[]{0};
-    String result = "";
-    if (!hasDelay) {
-        result = parseSequence(tokens, idx, "", senderUin, peerUin, chatType);
-    }
-
     // 后台执行
     if (bg) {
         final List bgTokens = new ArrayList(tokens);
@@ -2999,100 +3005,136 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         final String bgPu = peerUin;
         final int bgCt = chatType;
 
-        // 提取 sleep 延时
-        long delayMs = 0;
-        List execTokens = new ArrayList();
-        for (int ti = 0; ti < bgTokens.size(); ti++) {
-            String t = (String) bgTokens.get(ti);
-            if (t.equals("sleep") && ti + 1 < bgTokens.size()) {
-                try { delayMs = Long.parseLong(((String) bgTokens.get(ti + 1)).replaceAll("[^0-9]", "")) * 1000L; }
-                catch (Exception ex) {}
-                ti++;
-                continue;
+        if (!hasDelay) {
+            // 无延时，普通后台
+            final List finalTokens = new ArrayList(bgTokens);
+            if (daemons.size() >= 10) {
+                return "[拒绝: daemon 数量已达上限 10，请先 kill 旧任务]";
             }
-            execTokens.add(t);
-        }
-        // 去掉 sleep 后面紧跟的 && / ;
-        for (int ei = 0; ei < execTokens.size(); ei++) {
-            if ((execTokens.get(ei).equals("&&") || execTokens.get(ei).equals(";")) && ei + 1 < execTokens.size()) {
-                execTokens.remove(ei); ei--;
-            }
-        }
-
-        if (delayMs > 0 && !execTokens.isEmpty()) {
-            // 构建命令预览
-            StringBuilder cmdPreview = new StringBuilder();
-            for (int ei = 0; ei < Math.min(execTokens.size(), 6); ei++) { if (ei > 0) cmdPreview.append(" "); cmdPreview.append(execTokens.get(ei)); }
-            final List st = new ArrayList(execTokens);
-            // 注册到进程表
-            final int jobPid = nextDaemonPid++;
-            Map job = new HashMap();
-            job.put("cmd", cmdPreview.toString());
-            job.put("begin", System.currentTimeMillis());
-            job.put("end", System.currentTimeMillis() + delayMs);
-            job.put("status", "pending");
-            delayJobs.put(jobPid, job);
-            // 双保险：Timer精确 + 轮询兜底
-            final Map task = new HashMap();
-            task.put("at", System.currentTimeMillis() + delayMs);
-            task.put("tokens", new ArrayList(execTokens));
-            task.put("su", bgSu); task.put("pu", bgPu); task.put("ct", bgCt);
-            delayedTasks.add(task);
-
-            if (delayTimer == null) delayTimer = new Timer(true);
-            delayTimer.schedule(new TimerTask() {
+            final int p = nextDaemonPid++;
+            Thread t = new Thread(new Runnable() {
                 public void run() {
-                    // 标记已触发，防止轮询重复执行
-                    task.put("fired", Boolean.TRUE);
-                    job.put("status", "done");
-                    // 投递到主线程执行，确保 sendMsg 能正常工作
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
                         public void run() {
                             onMainThread++;
                             try {
                                 int[] ix = new int[]{0};
-                                parseSequence(st, ix, "", bgSu, bgPu, bgCt);
+                                parseSequence(finalTokens, ix, "", bgSu, bgPu, bgCt);
                             } catch (Exception e) {}
                             finally {
                                 onMainThread--;
+                                daemons.remove(p);
+                                daemonOutputs.remove(p);
                             }
                         }
                     });
                 }
-            }, delayMs);
-            return "[延时 " + (delayMs / 1000) + "s: " + cmdPreview.toString() + "]";
+            });
+            t.setDaemon(true); t.start();
+            daemons.put(p, t);
+            return "[pid:" + p + "]";
         }
 
-        final List daemonTokens = execTokens.isEmpty() ? bgTokens : execTokens;
-        // daemon 数量限制：最多 10 个
-        if (daemons.size() >= 10) {
-            return "[拒绝: daemon 数量已达上限 10，请先 kill 旧任务]";
-        }
-        final int p = nextDaemonPid++;
-        Thread t = new Thread(new Runnable() {
-            public void run() {
-                new Handler(Looper.getMainLooper()).post(new Runnable() {
-                    public void run() {
-                        onMainThread++;
-                        try {
-                            int[] ix = new int[]{0};
-                            parseSequence(daemonTokens, ix, "", bgSu, bgPu, bgCt);
-                        } catch (Exception e) {}
-                        finally {
-                            onMainThread--;
-                            daemons.remove(p);
-                            daemonOutputs.remove(p);
-                        }
-                    }
-                });
+        // 按 sleep N 拆分为链式段 [{delayMs, execTokens}, ...]
+        // sleep 5 && cmd1 && sleep 10 && cmd2 -> [{5, cmd1}, {10, cmd2}]
+        List segments = new ArrayList();
+        List curTokens = new ArrayList();
+        long curDelay = 0;
+        for (int ti = 0; ti < bgTokens.size(); ti++) {
+            String t = (String) bgTokens.get(ti);
+            if (t.equals("sleep") && ti + 1 < bgTokens.size()) {
+                if (!curTokens.isEmpty() || curDelay > 0) {
+                    Map seg = new HashMap();
+                    seg.put("delay", curDelay);
+                    seg.put("tokens", new ArrayList(curTokens));
+                    segments.add(seg);
+                    curTokens.clear();
+                }
+                try { curDelay = Long.parseLong(((String) bgTokens.get(ti + 1)).replaceAll("[^0-9]", "")) * 1000L; }
+                catch (Exception ex) { curDelay = 0; }
+                ti++;
+                continue;
             }
-        });
-        t.setDaemon(true); t.start();
-        daemons.put(p, t);
-        return "[pid:" + p + "]";
+            curTokens.add(t);
+        }
+        if (!curTokens.isEmpty() || curDelay > 0) {
+            Map seg = new HashMap();
+            seg.put("delay", curDelay);
+            seg.put("tokens", new ArrayList(curTokens));
+            segments.add(seg);
+        }
+
+        // 有延时段，构建链式调度
+        scheduleChain(segments, 0, bgSu, bgPu, bgCt);
+        // 构建预览
+        StringBuilder preview = new StringBuilder();
+        for (int si = 0; si < segments.size(); si++) {
+            Map seg = (Map) segments.get(si);
+            if (si > 0) preview.append("; ");
+            long d = Long.parseLong(String.valueOf(seg.get("delay")));
+            List toks = (List) seg.get("tokens");
+            preview.append("sleep ").append(d / 1000).append(" ");
+            for (int ti = 0; ti < Math.min(toks.size(), 3); ti++) {
+                preview.append(toks.get(ti)).append(" ");
+            }
+            if (toks.size() > 3) preview.append("...");
+        }
+        return "[延时链: " + preview.toString().trim() + "]";
     }
 
-        return result != null ? result : "";
+    // ---- 递归下降解析器 ----
+    int[] idx = new int[]{0};
+    String result = parseSequence(tokens, idx, "", senderUin, peerUin, chatType);
+    return result != null ? result : "";
+}
+
+// 链式调度延时任务段 [{delay, tokens}, ...]
+void scheduleChain(final List segments, final int index, final String bgSu, final String bgPu, final int bgCt) {
+    if (index >= segments.size()) return;
+    final Map seg = (Map) segments.get(index);
+    final long delayMs = Long.parseLong(String.valueOf(seg.get("delay")));
+    final List segTokens = (List) seg.get("tokens");
+    if (segTokens.isEmpty()) { scheduleChain(segments, index + 1, bgSu, bgPu, bgCt); return; }
+    // 清理首部 && / ;
+    while (!segTokens.isEmpty() && (segTokens.get(0).equals("&&") || segTokens.get(0).equals(";"))) {
+        segTokens.remove(0);
+    }
+    if (segTokens.isEmpty()) { scheduleChain(segments, index + 1, bgSu, bgPu, bgCt); return; }
+    // 注册到进程表
+    final int jobPid = nextDaemonPid++;
+    StringBuilder cmdPreview = new StringBuilder();
+    for (int ti = 0; ti < Math.min(segTokens.size(), 4); ti++) { if (ti > 0) cmdPreview.append(" "); cmdPreview.append(segTokens.get(ti)); }
+    Map job = new HashMap();
+    job.put("cmd", cmdPreview.toString());
+    job.put("begin", System.currentTimeMillis());
+    job.put("end", System.currentTimeMillis() + delayMs);
+    job.put("status", "pending");
+    delayJobs.put(jobPid, job);
+    // 双保险
+    final Map task = new HashMap();
+    task.put("at", System.currentTimeMillis() + delayMs);
+    task.put("tokens", new ArrayList(segTokens));
+    task.put("su", bgSu); task.put("pu", bgPu); task.put("ct", bgCt);
+    delayedTasks.add(task);
+    if (delayTimer == null) delayTimer = new Timer(true);
+    delayTimer.schedule(new TimerTask() {
+        public void run() {
+            task.put("fired", Boolean.TRUE);
+            job.put("status", "done");
+            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                public void run() {
+                    onMainThread++;
+                    try {
+                        int[] ix = new int[]{0};
+                        parseSequence(new ArrayList(segTokens), ix, "", bgSu, bgPu, bgCt);
+                    } catch (Exception e) {}
+                    finally { onMainThread--; }
+                }
+            });
+            // 调度下一段
+            scheduleChain(segments, index + 1, bgSu, bgPu, bgCt);
+        }
+    }, delayMs);
 }
 
 // 解析序列: pipeline ((; | && | ||) pipeline)*
@@ -3188,12 +3230,54 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             if (path.equals("-")) {
                 return stdin;
             }
+            // 二进制文件保护
+            if (path.startsWith("/persist/") || path.startsWith("/var/")) {
+                String real = path;
+                if (path.startsWith("/persist/")) real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
+                else if (path.startsWith("/var/")) real = pluginPath + "/config/" + path.replace("/var/", "");
+                File f = new File(real);
+                if (f.isFile() && f.length() > 100 * 1024) {
+                    return "文件过大 (" + (f.length() / 1024) + "KB), 禁止读取。使用 corax-sendfile 发送。";
+                }
+                byte[] head = new byte[Math.min((int) f.length(), 512)];
+                if (f.isFile() && f.length() > 0) {
+                    try {
+                        FileInputStream fis = new FileInputStream(f);
+                        fis.read(head);
+                        fis.close();
+                        for (int bi = 0; bi < head.length; bi++) {
+                            if (head[bi] == 0) return "[二进制文件，不可 cat。使用 stat 查看信息]";
+                        }
+                    } catch (Exception e) { return "[读取失败]"; }
+                }
+            }
             return vfsRead(path, senderUin, peerUin, chatType);
         }
         if (cmd.equals("ls")) {
             String path = "/";
             for (int i = 0; i < args.length; i++) {
                 if (!args[i].startsWith("-")) { path = args[i]; break; }
+            }
+            // 真实文件系统路径：只列目录，不读文件内容
+            if (path.startsWith("/persist/") || path.startsWith("/var/") || path.startsWith("/etc/")) {
+                String real = path;
+                if (path.startsWith("/persist/")) real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
+                else if (path.startsWith("/var/")) real = pluginPath + "/config/" + path.replace("/var/", "");
+                else real = pluginPath + "/config/" + path.replace("/etc/", "");
+                File f = new File(real);
+                if (f.isDirectory()) {
+                    String[] files = f.list();
+                    if (files == null || files.length == 0) return "(空)";
+                    StringBuilder sb = new StringBuilder();
+                    for (int fi = 0; fi < files.length; fi++) sb.append(files[fi]).append("\n");
+                    return sb.toString().trim();
+                }
+                if (f.isFile()) {
+                    long size = f.length();
+                    if (size > 1024 * 1024) return "文件太大，无法预览 (" + (size / 1024 / 1024) + "MB)";
+                    return f.getName() + " (" + size + " bytes)";
+                }
+                return "(文件不存在)";
             }
             return vfsRead(path, senderUin, peerUin, chatType);
         }
@@ -3365,12 +3449,6 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             List results = pub ? searchPublicMemories(kw) : searchMemories(senderUin, kw);
             return formatMemList(results, false);
         }
-        if (cmd.equals("corax-skill")) {
-            if (args.length < 1) {
-                return "用法: corax-skill <skill名称>";
-            }
-            return loadSkillContent(args[0]);
-        }
         if (cmd.equals("corax-listen")) {
             if (args.length < 1) {
                 return "用法: corax-listen <on|off|status>";
@@ -3393,6 +3471,36 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }
             return "用法: corax-listen <on|off|status>";
         }
+        if (cmd.equals("corax-sendfile")) {
+            if (args.length < 1) {
+                return "用法: corax-sendfile <路径>";
+            }
+            String filePath = args[0];
+            File f = new File(filePath);
+            if (!f.exists()) {
+                if (filePath.startsWith("/persist/")) {
+                    f = new File(pluginPath + "/shared-space/" + filePath.replace("/persist/", ""));
+                } else if (filePath.startsWith("/var/")) {
+                    f = new File(pluginPath + "/config/" + filePath.replace("/var/", ""));
+                }
+            }
+            if (!f.exists()) {
+                return "文件不存在: " + filePath;
+            }
+            if (onMainThread == 0) {
+                final String absPath = f.getAbsolutePath();
+                final String fpu = peerUin;
+                final int fct = chatType;
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    public void run() {
+                        sendFile(fpu, absPath, fct);
+                    }
+                });
+                return "[已投递到主线程，稍后发送]";
+            }
+            sendFile(peerUin, f.getAbsolutePath(), chatType);
+            return "已发送: " + f.getName();
+        }
         if (cmd.equals("corax-reboot")) {
             if (args.length < 1) {
                 return "用法: corax-reboot <人设名称>";
@@ -3404,6 +3512,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }
             setActivePersona(target);
             return "已切换至: " + target + "（上下文已保留，新人设将在下条消息生效）";
+        }
+        if (cmd.equals("ps")) {
+            return vfsRead("/proc/ps", senderUin, peerUin, chatType);
         }
         if (cmd.equals("stat")) {
             if (args.length < 1) {
@@ -3462,6 +3573,13 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }
             String path = args[0];
             if (!path.endsWith("/")) path += "/";
+            // /persist/ 下真正建目录，其余路径用虚拟文件
+            if (path.startsWith("/persist/")) {
+                String real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
+                File dir = new File(real);
+                if (dir.exists()) return "";
+                return dir.mkdirs() ? "" : "[目录创建失败]";
+            }
             String err = vfsWrite(path, "(目录)", false, senderUin, peerUin, chatType);
             return err != null ? err : "";
         }
@@ -3521,9 +3639,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             return sb.toString().trim();
         }
         if (cmd.equals("corax-help")) {
-            return "Corax-Shell v4.4.0\n\n"
+            return "Corax-Shell v5.0.0\n\n"
                 + "内置命令: ls cat echo grep wc head tail date sleep\n"
-                + "Corax命令: sed corax-edit corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-skill corax-listen corax-reboot\n"
+                + "Corax命令: sed corax-edit corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-listen corax-sendfile corax-reboot\n"
                 + "管道/重定向: | > >> &\n"
                 + "文件系统: /proc/ /etc/ /dev/ /ctx/ /var/ /tmp/ /persist/ /src/\n"
                 + "查阅 /persist/DevDocs.md 了解项目架构";
@@ -4268,6 +4386,15 @@ public void onMsg(Object msg) {
             String outMsg = "[Output] " + parts[2];
             lastAssistantMsg = outMsg;
             sendMsg(parts[0], outMsg, Integer.parseInt(parts[1]));
+            // 持久化到 ctx，让 AI 回头看时可见
+            List dctx = getAiContext(parts[0], Integer.parseInt(parts[1]));
+            if (dctx != null) {
+                Map dm = new HashMap();
+                dm.put("role", "system");
+                dm.put("content", "<t>" + getCurrentTime() + "</t><output>" + parts[2] + "</output>");
+                dm.put("_ts", System.currentTimeMillis());
+                dctx.add(dm);
+            }
             sent++;
         }
     }
@@ -4469,7 +4596,7 @@ public void onMsg(Object msg) {
     if (cmd.equals("/help")) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
-        h.append("墨鸦 v4.4.0 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
+        h.append("墨鸦 v5.0.0 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
         if (role.equals("ADMIN") || role.equals("OWNER")) h.append("/ai set / config / off / on / clear\n");
         if (role.equals("OWNER")) h.append("/setdefaultaccount\n");
         h.append("\n墨鸦-Strata | 轻量级 Agentic RAG");
@@ -4571,7 +4698,7 @@ public void onMsg(Object msg) {
 }
 
 /*
- *  墨鸦 Strata v4.4.0
+ *  墨鸦 Strata v5.0.0
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
  *  Author:  YiJieqwq异界

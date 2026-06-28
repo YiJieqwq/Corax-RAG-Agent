@@ -58,8 +58,8 @@
 | `corax-mem-rm <id>` | 删除记忆 |
 | `corax-mem-tag [--public] <tag>` | 按标签搜索记忆 |
 | `corax-mem-search [--public] <keyword>` | 按关键词搜索记忆 |
-| `corax-skill <skill名称>` | 加载技能 |
 | `corax-listen <on\|off\|status>` | 控制监听模式 |
+| `corax-sendfile <路径>` | 发送文件到当前聊天 |
 | `corax-reboot <人设名称>` | 切换人设（保留上下文） |
 
 ### ⚠️ 核心规则
