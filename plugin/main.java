@@ -3459,7 +3459,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             return sb.toString().trim();
         }
         if (cmd.equals("corax-help")) {
-            return "Corax-Shell v4.4.0\n\n"
+            return "Corax-Shell v5.0.0\n\n"
                 + "内置命令: ls cat echo grep wc head tail date sleep\n"
                 + "Corax命令: sed corax-edit corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-listen corax-sendfile corax-reboot\n"
                 + "管道/重定向: | > >> &\n"
@@ -4240,7 +4240,7 @@ public void onMsg(Object msg) {
     if (cmd.equals("/help")) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
-        h.append("墨鸦 v4.4.0 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
+        h.append("墨鸦 v5.0.0 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
         if (role.equals("ADMIN") || role.equals("OWNER")) h.append("/ai set / config / off / on / clear\n");
         if (role.equals("OWNER")) h.append("/setdefaultaccount\n");
         h.append("\n墨鸦-Strata | 轻量级 Agentic RAG");
@@ -4342,7 +4342,7 @@ public void onMsg(Object msg) {
 }
 
 /*
- *  墨鸦 Strata v4.4.0
+ *  墨鸦 Strata v5.0.0
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
  *  Author:  YiJieqwq异界
