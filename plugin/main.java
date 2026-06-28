@@ -3351,6 +3351,13 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }
             String path = args[0];
             if (!path.endsWith("/")) path += "/";
+            // /persist/ 下真正建目录，其余路径用虚拟文件
+            if (path.startsWith("/persist/")) {
+                String real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
+                File dir = new File(real);
+                if (dir.exists()) return "";
+                return dir.mkdirs() ? "" : "[目录创建失败]";
+            }
             String err = vfsWrite(path, "(目录)", false, senderUin, peerUin, chatType);
             return err != null ? err : "";
         }
