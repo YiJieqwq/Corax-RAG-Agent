@@ -3054,7 +3054,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }
             // 二进制文件保护
             if (path.startsWith("/persist/") || path.startsWith("/var/")) {
-                String real = vfsMapEtcPath(path);
+                String real = path;
+                if (path.startsWith("/persist/")) real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
+                else if (path.startsWith("/var/")) real = pluginPath + "/config/" + path.replace("/var/", "");
                 File f = new File(real);
                 if (f.isFile() && f.length() > 100 * 1024) {
                     return "文件过大 (" + (f.length() / 1024) + "KB), 禁止读取。使用 corax-sendfile 发送。";
@@ -3078,9 +3080,12 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             for (int i = 0; i < args.length; i++) {
                 if (!args[i].startsWith("-")) { path = args[i]; break; }
             }
-            // 只列目录内容或文件信息，不读文件内容
+            // 真实文件系统路径：只列目录，不读文件内容
             if (path.startsWith("/persist/") || path.startsWith("/var/") || path.startsWith("/etc/")) {
-                String real = vfsMapEtcPath(path);
+                String real = path;
+                if (path.startsWith("/persist/")) real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
+                else if (path.startsWith("/var/")) real = pluginPath + "/config/" + path.replace("/var/", "");
+                else real = pluginPath + "/config/" + path.replace("/etc/", "");
                 File f = new File(real);
                 if (f.isDirectory()) {
                     String[] files = f.list();
