@@ -84,11 +84,6 @@ SQLiteDatabase getDb() {
         try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_chat_type INTEGER NOT NULL DEFAULT 0"); } catch (Exception ignored) { }
         try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_msg_id TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
         try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_text TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
-        try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_created_at INTEGER NOT NULL DEFAULT 0"); } catch (Exception ignored) { }
-        try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN subject_role TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
-        try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN assertion_type TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
-        try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_sender_uin TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
-        try { sharedDb.execSQL("ALTER TABLE memories ADD COLUMN source_sender_role TEXT NOT NULL DEFAULT ''"); } catch (Exception ignored) { }
         sharedDb.execSQL(
             "CREATE TABLE IF NOT EXISTS tag_pool (" +
             "uin TEXT NOT NULL, " +
@@ -559,11 +554,6 @@ boolean storeMemoryWithSource(String uin, String content, String tags, String sc
     try {
         long now = System.currentTimeMillis();
         String su = normalizeSubjectUin(uin, subjectUin);
-        String recordRole = getRole(uin);
-        String subjectRole = su.isEmpty() ? "" : getRole(su);
-        String sourceSender = sourceSenderUin != null && !sourceSenderUin.isEmpty() ? sourceSenderUin : uin;
-        String sourceSenderRole = sourceSender.isEmpty() ? "" : getRole(sourceSender);
-        String assertionType = calcAssertionType(uin, su);
         int cred = calcCredibility(uin, scope, su);
         ContentValues cv = new ContentValues();
         cv.put("uin", uin);
@@ -576,23 +566,15 @@ boolean storeMemoryWithSource(String uin, String content, String tags, String sc
         cv.put("weight", 1);
         cv.put("pinned", 0);
         cv.put("credibility", cred);
-        cv.put("subject_role", subjectRole);
-        cv.put("assertion_type", assertionType);
         cv.put("source_peer_uin", sourcePeerUin != null ? sourcePeerUin : "");
         cv.put("source_chat_type", sourceChatType);
         cv.put("source_msg_id", sourceMsgId != null ? sourceMsgId : "");
         cv.put("source_text", sourceText != null ? sourceText : "");
-        cv.put("source_created_at", sourceTimeMs > 0 ? sourceTimeMs : now);
-        cv.put("source_sender_uin", sourceSender);
-        cv.put("source_sender_role", sourceSenderRole);
         long id = getDb().insert("memories", null, cv);
         if (id != -1) {
             if ("public".equals(scope)) updateTagPool("PUBLIC", tags, 1);
             else updateTagPool(uin, tags, 1);
-            writeLog(uin, "[MEMORY/" + scope + "] record:" + uin + "(" + recordRole + ")" +
-                " about:" + su + "(" + subjectRole + ")" +
-                " assertion:" + assertionType + " cred:" + cred + " tags:" + tags +
-                " source:" + (sourcePeerUin != null && !sourcePeerUin.isEmpty() ? sourcePeerUin + "/" + sourceChatType : "manual") +
+            writeLog(uin, "[MEMORY/" + scope + "] cred:" + cred + " tags:" + tags +
                 " " + content + " (id=" + id + ")");
             return true;
         }
@@ -749,8 +731,7 @@ Map getMemoryDetail(long id) {
     try {
         c = getDb().rawQuery(
             "SELECT id, uin, content, tags, scope, subject_uin, weight, pinned, credibility, created_at, accessed_at, " +
-            "source_peer_uin, source_chat_type, source_msg_id, source_text, source_created_at, " +
-            "subject_role, assertion_type, source_sender_uin, source_sender_role FROM memories WHERE id = ?",
+            "source_peer_uin, source_chat_type, source_msg_id, source_text FROM memories WHERE id = ?",
             new String[]{String.valueOf(id)});
         if (c.moveToFirst()) {
             Map m = new HashMap();
@@ -769,11 +750,6 @@ Map getMemoryDetail(long id) {
             m.put("sourceChatType", c.getInt(12));
             m.put("sourceMsgId", c.getString(13) != null ? c.getString(13) : "");
             m.put("sourceText", c.getString(14) != null ? c.getString(14) : "");
-            m.put("sourceCreatedAt", c.getLong(15));
-            m.put("subjectRole", c.getString(16) != null ? c.getString(16) : "");
-            m.put("assertionType", c.getString(17) != null ? c.getString(17) : "");
-            m.put("sourceSenderUin", c.getString(18) != null ? c.getString(18) : "");
-            m.put("sourceSenderRole", c.getString(19) != null ? c.getString(19) : "");
             return m;
         }
     } catch (Exception e) { this.log("error.txt", "getMemoryDetail: " + e.getMessage()); }
@@ -2458,9 +2434,8 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     if (path.startsWith("/persist/")) {
         return vfsReadPersist(path);
     }
-    // /src/ — 出于安全考虑，源码不可读取
     if (path.startsWith("/src/")) {
-        return "[拒绝: 源码不可读取]";
+        return vfsReadSrc();
     }
     // /tmp/
     if (path.startsWith("/tmp/")) {
@@ -3974,7 +3949,6 @@ void handleAiMemory(Object msg, String args) {
             String smid = (String) m.get("sourceMsgId");
             if (smid != null && !smid.isEmpty()) sb.append(" msgId=").append(smid);
             sb.append("\n来源发送者: ").append(sourceSender).append("(").append(sourceSenderRole).append(")");
-            sb.append("\n来源时间: ").append(fmtTime(Long.parseLong(String.valueOf(m.get("sourceCreatedAt")))));
         } else {
             sb.append("\n来源消息: 旧数据或内部写入，未记录");
         }
