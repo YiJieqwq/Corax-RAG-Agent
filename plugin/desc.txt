@@ -1,4 +1,4 @@
-🦅 墨鸦-Strata v4.4.0 (Workspace) 🦅
+🦅 墨鸦-Strata v5.0.0 (Corvus) 🦅
 
 \"墨鸦\"——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
 
@@ -9,6 +9,9 @@
 /ai set search_api_key <你的搜索 key>
 /ai on 启用当前对话框 AI 功能
 集成包附带 陈千语.prompt.txt 人设文件，默认启用，可用/ai config 查看唤醒词列表
+
+⚠️ 旧版本更新须知：
+本版本改动较多，不建议保留任何旧版本文件。请清空 config/ctx/ 下的旧上下文，删除 config/data.db 重建数据库。
 
 默认值（可用 /ai set 更改）：
 model = deepseek-v4-flash (可随意修改)
@@ -24,7 +27,7 @@ ai_prefix = 1（AI 消息强制 [AI] 前缀）
 shell_rounds = 8（最大搜索轮次，搜索N轮+最终回答）
 sewarden = 1（WARDEN增强防护，不建议关闭）
 
-近期更新（v4.4.0）：
+近期更新（v5.0.0）：
 - Corax-Shell Workspace：虚拟文件系统，单一 shell(cmd) 工具替代全部 FC
 - 管道/重定向/后台任务，daemon 支持消息监听与自主回复
 - /persist/ 持久化存储，消息队列防丢失，人设 A/B 槽位
@@ -46,15 +49,15 @@ sewarden = 1（WARDEN增强防护，不建议关闭）
 
 命令概览：
 /ai <内容|debug|status|reboot|memory|forget|off|on|clear|config|set|dumpctx>
-/ai memory <pin|search|set|rm|reset|public|all>
-/ai listen <on|off|status>
+/ai memory <info|pin|search|set|rm|reset|public|all>
+/ai listen <on|off|status|summary>
 /block <@|UID|list>
 /member <@|UID|list>
 /admin <@|UID|list>
 /setdefaultaccount <member|blocked>
 /whoami /help /log
 
-监听模式：群聊开启后静默记录上下文，@AI 或唤醒词触发一次回答。
+监听模式：群聊开启后静默记录上下文，并临时记录监听期群消息；/ai listen summary 可总结后清空，关闭监听也会清空。@AI 或唤醒词触发一次回答。
 
 技术缩写：
 Strata: Stratified Tiered Recall Architecture

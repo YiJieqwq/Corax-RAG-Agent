@@ -151,6 +151,7 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 /ai memory set <内容>             # 添加记忆
 /ai memory rm <id>                # 删除记忆
 /ai memory search <关键词>        # 搜索记忆
+/ai memory info <id>              # 查看记忆来源链
 /ai memory pin <id>               # 置顶/取消置顶
 /ai memory public                 # 查看公有记忆
 /ai memory public set/rm          # 管理公有记忆
@@ -158,6 +159,7 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 /ai memory reset                  # 清空全部记忆（宿主）
 
 /ai listen on / off / status      # 监听模式控制
+/ai listen summary                # 总结监听期群聊记录并清空临时记录
 
 /ai set <key> <value>             # 修改配置
 /ai config                        # 查看配置
@@ -206,7 +208,7 @@ Corax-RAG-Agent/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── plugin/
-│   └── main.java              # 核心插件（单文件）
+│   └── main.java              # 唯一运行/发布入口（核心插件单文件）
 ├── skills/                     # 技能文件
 │   ├── rootmanagers.skill.txt
 │   └── 春秋检测常见检测项.skill.txt

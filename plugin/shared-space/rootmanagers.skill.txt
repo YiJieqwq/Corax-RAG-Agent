@@ -1,0 +1,118 @@
+##简介 当用户询问 root 管理器、安卓 root 方案、Magisk/KernelSU/APatch 对比、刷机 root 相关话题时使用此技能。
+
+——
+常见 Root 管理器介绍（2025-2026）
+——
+
+0. 前言：Magisk 的时代正在过去
+
+Magisk 曾是 Android root 的事实标准，但 2024-2026 年间，银行类、金融类应用的 root 检测大幅升级。Zygisk + Shamiko + DenyList 的组合已无法稳定绕过最新检测。因此：
+• 5 系内核（5.10+）新机 → 不推荐 Magisk，隐藏太弱
+• 6 系内核（6.1+）新机 → 完全不推荐 Magisk
+• 4 系及以下老机型 → Magisk 仍可作为备选方案（检测压力相对较低）
+
+——
+1. KernelSU (KSU)
+
+基于内核的 root 方案。核心思路：在内核层给 su，不走用户态 su 二进制。
+
+工作模式（重要区分）：
+
+1.1 Built-in 模式
+• 原理：将 KSU 代码直接编译进 boot 镜像
+• GKI 设备：下载官方预编译的带 KSU 的 boot.img 刷入
+• 非 GKI 设备：下载内核源码 + KSU 补丁 → 自行编译 → 刷入 boot
+• 优点：一体化，干净
+• 缺点：OTA 后需重新刷入；非 GKI 编译门槛高
+
+1.2 LKM 模式（可加载内核模块）
+• 原理：不替换 boot 镜像，通过修补 init_boot 分区，开机时动态加载 KSU 内核模块
+• 优点：不动 boot，OTA 升级方便，可与第三方内核共存
+• 限制：仅支持 4.19+ 内核（即 5 系及以上）；4.14 及以下只能用 Built-in
+• KSU 和 SKU 的 LKM 支持范围完全一致（底层相同）
+
+模式速查：
+  - 5.10+（GKI 2.0）→ LKM 首选
+  - 4.19-5.4 → Built-in 或自行编译 .ko 走 LKM
+  - < 4.19 → 只能 Built-in，需自行编译内核
+
+• 隐藏能力：极强。工作在内核空间，应用层几乎无感知
+• 模块系统：需要"元模块"来挂载其他模块，不内置挂载器
+• 元模块：最知名的是 Hybrid Mount（hybrid mount），一款同时支持 OverlayFS 和 Magic Mount 的元模块
+• 管理方式：KernelSU Manager (apk)
+
+——
+2. SuKisu Ultra (SKU)
+
+KernelSU 的增强分支
+名字取自日语「好きす」（喜欢），国内常称"杂鱼"（因为其管理器图标为"杂鱼"表情包）。
+
+与 KSU 的关系：
+• 并行开发：KSU 出了新补丁，SKU 通常一两天内跟进
+• 开发者有大量重叠，底层完全一致
+• SKU 在 KSU 基础上增加了更多功能和自定义选项
+• LKM 支持范围与 KSU 完全一致
+
+相比 KSU 的额外特性：
+• 更好的隐藏性（部分额外规避手段）
+• 更丰富的 UI 自定义
+• 更频繁的功能更新
+
+选择 KSU 还是 SKU：
+• 想要更好的隐藏性 → SKU（差别不大）
+• 想要更稳定/官方兼容 → KSU（差别也不大）
+• 不存在"不在 KSU 支持列表所以要换 SKU"的情况——支持范围相同，只有"内核太老只能自己编译"
+
+——
+3. SuSFS 补充说明
+
+SuSFS 是内核级伪装方案，不是普通模块：
+• SuSFS 需要自行编译到内核中 → 类似管理器 app 和内核组件的关系
+• SuSFS 的"模块文件"只是管理载体，核心代码在内核里
+• LKM 模式装不了 SuSFS，也不需要——SuSFS 是伪装内核用的，LKM 没动内核文件
+• 只有 Built-in 模式（刷了带 SuSFS 补丁的 boot）才能使用 SuSFS
+
+——
+4. APatch (AP)
+
+新一代内核级 root 方案。结合了内核空间优势和 Magisk 模块兼容性。
+• 模式：内核修补（KernelPatch），inline-hook + syscall-table-hook
+• 不需要 GKI，不替换 boot
+• APM（APatch Module）：类似 Magisk 的模块系统，兼容部分 Magisk 模块
+• KPM（Kernel Patch Module）：支持向内核注入自定义代码
+• 内核兼容：3.18+ 均可使用
+• 优势：无需 GKI，兼容极旧内核；隐藏能力强
+• 劣势：生态尚在早期，社区/教程/模块数量有限
+• 管理方式：APatch Manager (apk)
+
+——
+5. FolkPatch (FP)
+
+APatch 的社区衍生版本，类似 SuKisu Ultra 之于 KernelSU。
+• 基于 APatch 框架，扩展了内核兼容性和界面功能
+• 全自动 KPM 加载机制
+• 更丰富的 UI 自定义（壁纸、DPI、列表/网格布局、深色模式）
+• 适用人群：APatch 不支持的冷门设备
+• 劣势：社区规模小，稳定性依赖具体设备
+
+——
+6. 总结与推荐
+
+5 系/6 系新机，追求隐藏 → KSU / SKU（LKM 模式）      
+4.19-5.4 内核 → KSU / SKU Built-in 或 APatch
+3.18-4.14 老内核 → APatch / FolkPatch / Magisk
+需要大量模块生态 → Magisk（仅 4 系及以下老机）
+刚入门，教程最多 → Magisk（隐藏是硬伤
+综合趋势（2024-2026）KSU/SKU → APatch → Magisk
+
+权限模型对比：
+• Magisk：用户态 Superuser + Zygisk 注入
+• KSU/SKU：内核态 su + App Profile（权限关进笼子）
+• APatch/FP：内核修补 + APM 模块 + KPM 代码注入
+
+一句话：内核越新，越远离 Magisk；越追求隐藏，越靠近内核层方案。
+
+其他注意事项: 
+1. KSU/SKU不需要安装"救砖"模块，因为在开机界面三击音量下键即可进入KSU/SKU自带的安全模式(禁用一切模块)。
+2. TrickyStore和TEESimulator/TEESimulator-RS不能同时安装，因为二者共用/data/adb/下的"tricky_store"文件夹。
+3. LKM(Loadable Kernel Module，动态可加载内核模块)是 Linux 操作系统中可以在运行时动态加载或卸载的内核组件，本文中"LKM模式"指使用.ko文件加载root管理器驱动文件，切忌将"LKM"视为"只有KSU和SKU才能用的模式"。
