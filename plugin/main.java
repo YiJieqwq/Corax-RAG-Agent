@@ -1214,6 +1214,15 @@ void trimCtx(List ctx) {
             break;
         }
     }
+    // 清除尾部的孤立 assistant+tool_calls（后置 tool 已被截断）
+    while (!ctx.isEmpty()) {
+        Map last = (Map) ctx.get(ctx.size() - 1);
+        if ("assistant".equals(last.get("role")) && last.get("tool_calls") != null) {
+            ctx.remove(ctx.size() - 1);
+        } else {
+            break;
+        }
+    }
 }
 
 void injectApprovalResult(String peerUin, int chatType, String message) {
@@ -1639,6 +1648,31 @@ dumpMsgs.put(dj);
             j.put("tool_call_id", m.get("tool_call_id"));
         }
         ai2Msgs.put(j);
+    }
+    // 确保 tool call/result 配对：移除孤儿消息防止 DeepSeek 400
+    {
+        JSONArray cleanMsgs = new JSONArray();
+        boolean pendingToolCall = false;
+        for (int ci = 0; ci < ai2Msgs.length(); ci++) {
+            JSONObject cj = ai2Msgs.getJSONObject(ci);
+            String cr = cj.optString("role", "");
+            boolean hasTC = cj.has("tool_calls");
+            boolean hasTCId = cj.has("tool_call_id");
+            if ("tool".equals(cr) && hasTCId) {
+                if (pendingToolCall) {
+                    cleanMsgs.put(cj);
+                    pendingToolCall = false;
+                }
+                // else: orphan tool, drop it
+            } else if ("assistant".equals(cr) && hasTC) {
+                cleanMsgs.put(cj);
+                pendingToolCall = true;
+            } else {
+                cleanMsgs.put(cj);
+                pendingToolCall = false;
+            }
+        }
+        ai2Msgs = cleanMsgs;
     }
 
     // === 集中构建系统上下文（合并为一条消息） ===
