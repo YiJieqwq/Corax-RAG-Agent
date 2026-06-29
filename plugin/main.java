@@ -34,7 +34,6 @@ static long systemPromptFileMtime = 0;
 static List cachedWakeWords = null;
 static long wakeWordsFileMtime = 0;
 
-static String cachedSkills = null;
 static Timer delayTimer = null;
 static boolean aiProcessing = false;
 static Queue msgQueue = new LinkedList();
@@ -45,7 +44,6 @@ static String lastAssistantMsg = null;
 static String quotedUin = "";
 static String patOperatorUin = null;
 static String patPeerUin = null;
-static long skillsDirMtime = 0;
 
 // ==================== SQLite ====================
 SQLiteDatabase getDb() {
@@ -216,59 +214,6 @@ boolean startsWithWakeWord(String text) {
         }
     }
     return false;
-}
-
-// ==================== Skills ====================
-String loadSkills() {
-    File dir = new File(pluginPath + "/config/skills");
-    if (!dir.exists() || !dir.isDirectory()) {
-        cachedSkills = "";
-        skillsDirMtime = 0;
-        return "";
-    }
-    long latestMtime = 0;
-    File[] files = dir.listFiles(new FilenameFilter() {
-        public boolean accept(File dir, String name) { return name.endsWith(".skill.txt"); }
-    });
-    if (files == null || files.length == 0) {
-        cachedSkills = "";
-        skillsDirMtime = 0;
-        return "";
-    }
-    for (int i = 0; i < files.length; i++) {
-        long mt = files[i].lastModified();
-        if (mt > latestMtime) {
-            latestMtime = mt;
-        }
-    }
-    if (cachedSkills != null && latestMtime == skillsDirMtime) {
-        return cachedSkills;
-    }
-
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < files.length; i++) {
-        String name = files[i].getName();
-        String skillName = name.substring(0, name.length() - ".skill.txt".length());
-        // 只取第一行作为简介
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(files[i]));
-            String firstLine = br.readLine();
-            br.close();
-            String desc = "";
-            if (firstLine != null) {
-                if (firstLine.startsWith("##简介")) {
-                    desc = firstLine.substring("##简介".length()).trim();
-                }
-                    else {
-                        desc = firstLine.trim();
-                    }
-            }
-            if (!desc.isEmpty()) { sb.append(skillName).append(": ").append(desc).append("\n"); }
-        } catch (Exception e) { this.log("error.txt", "loadSkills: " + e.getMessage()); }
-    }
-    cachedSkills = sb.toString().trim();
-    skillsDirMtime = latestMtime;
-    return cachedSkills;
 }
 
 // ==================== 默认账户 ====================
@@ -1604,7 +1549,6 @@ dumpMsgs.put(dj);
 
         String pubS = buildPublicStrata(); if (!pubS.isEmpty()) { JSONObject pj = new JSONObject(); pj.put("role", "system"); pj.put("content", pubS); dumpMsgs.put(pj); }
         String privS = buildStrataContext(senderUin); if (!privS.isEmpty()) { JSONObject pvj = new JSONObject(); pvj.put("role", "system"); pvj.put("content", privS); dumpMsgs.put(pvj); }
-        String sk = loadSkills(); if (!sk.isEmpty()) { JSONObject skj = new JSONObject(); skj.put("role", "system"); skj.put("content", "=== 可用技能 ===\n" + sk); dumpMsgs.put(skj); }
         if (!quotedText.isEmpty()) {
             JSONObject qmu = new JSONObject(); qmu.put("role", "user");
             qmu.put("name", quotedUin);
@@ -4855,7 +4799,6 @@ void handleAiConfig(Object msg) {
     sb.append("default_account = ").append(getDefaultAccount()).append("\n");
     String persona = loadPersona(); sb.append("人设 = ").append(getActivePersona()).append(persona.isEmpty() ? " (未)" : " (" + persona.length() + "字符)").append("\n");
     List ww = loadWakeWords(); sb.append("唤醒词 = ").append(ww.isEmpty() ? "(无)" : ""); for (int i = 0; i < ww.size(); i++) { if (i > 0) sb.append(","); sb.append(ww.get(i)); }
-    sb.append("\n技能 = "); String skills = loadSkills(); sb.append(skills.isEmpty() ? "(无)" : "已加载");
     sendStyledHeader(msg, "INFO", sb.toString());
 }
 
@@ -5057,7 +5000,6 @@ public void onMsg(Object msg) {
     if (!aiReady) {
         getDb();
         loadAiConfig();
-        loadSkills();
         aiReady = true;
     }
 
