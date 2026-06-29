@@ -5,8 +5,16 @@
 - **延时任务注册表**：/proc/ps 可见，/proc/<pid>/status 和 /proc/<pid>/cmd 可查
 - **corax-sendfile**：从 shell 发送文件到聊天，主线程安全投递
 - **新内置命令**：ps / stat / touch / rm / mkdir / chmod / find / sort / uniq / cut
+- **记忆来源记录**：AI 创建记忆时同步记录触发的原消息（source_text）(thanks @Shixiaoshi0417)
 - mkdir 在 /persist/ 下创建真实目录
 - Shell 命令不存在时提示"查看可用命令: corax-help"
+
+### Security (thanks @Shixiaoshi0417)
+- 路径穿越 /../ 防护：vfsNorm 逐段解析
+- SQL 白名单：vfsWriteVarDb 改为 SELECT-only
+- Daemon 上限 10 检查
+- 技能路径注入防护 + loadSkillContent 死代码移除
+- Cursor close 移至 finally + 事务保护
 
 ### Bug Fixes
 - **工具持久化修复**：tool 结果完整保留到 ctx，加载时兼容旧格式孤儿 tool
@@ -16,11 +24,13 @@
 - **cat 二进制保护**：大文件/二进制拒绝读取
 - **超长行拆分**：BeanShell 250 字符限制兼容
 - **全量 if-return/break/continue 展开**：三行花括号，不再静默崩溃
-- **一行花括号 if-return 拆行**：`if (a < 1) { return "x"; }` → 三行
+- **一行花括号 if-return 拆行**
+- reboot 时 ctx 落盘
+- 消息队列：AI 处理中不丢消息
 
 ### Changed
 - skill 文件迁移到 /persist/（corax-skill 命令移除）
-- 系统提示词精简，架构说明改为引导查阅 /persist/DevDocs.md
+- 系统提示词精简
 - /ai off 下所有非 /ai on 指令完全静默
 - OpenAI 标准消息格式：assistant + tool_calls → tool → 完整 ctx 持久化
 

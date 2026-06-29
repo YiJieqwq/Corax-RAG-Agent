@@ -10,6 +10,9 @@
 /ai on 启用当前对话框 AI 功能
 集成包附带 陈千语.prompt.txt 人设文件，默认启用，可用/ai config 查看唤醒词列表
 
+⚠️ 旧版本更新须知：
+本版本改动较多，不建议保留任何旧版本文件。请清空 config/ctx/ 下的旧上下文，删除 config/data.db 重建数据库。
+
 默认值（可用 /ai set 更改）：
 model = deepseek-v4-flash (可随意修改)
 context_ttl = 0（不限制，设为分钟数则超时清空）

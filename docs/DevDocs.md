@@ -325,7 +325,7 @@ CREATE TABLE memories (
 | v4.0 | 全尖括号标签 + name 纯 UIN + 监听只记录 + 系统概览白盒 |
 | v4.1 | 加入 SEWarden |
 | v4.2 | Tavily 搜索支持 + 可配置搜索轮数 |
-| v5.0.0 | Corax-Shell Workspace: 虚拟文件系统 + 单一shell(cmd)工具 + 消息队列 + daemon后台任务 + /persist持久化 |
+| v5.0.0 | 链式延时 + corax-sendfile + 安全加固(路径穿越/SQL/daemon上限) + 记忆溯源(source_text) + 新命令(ps/stat/rm/touch/mkdir等) + BeanShell兼容全量修复 |
 
 ---
 
