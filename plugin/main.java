@@ -4279,7 +4279,7 @@ String readListenLogForPrompt(String peerUin, int chatType, int maxChars) {
     if (!f.exists()) {
         return "";
     }
-    StringBuilder sb = new StringBuilder();
+    List formattedLines = new ArrayList();
     int count = 0;
     try {
         BufferedReader br = new BufferedReader(new FileReader(f));
@@ -4289,34 +4289,53 @@ String readListenLogForPrompt(String peerUin, int chatType, int maxChars) {
                 continue;
             }
             JSONObject o = new JSONObject(line);
-            sb.append("[").append(o.optString("time", "")).append("] ");
+            StringBuilder entry = new StringBuilder();
+            entry.append("[").append(o.optString("time", "")).append("] ");
             String name = o.optString("name", "");
             String sender = o.optString("sender", "");
             if (!name.isEmpty()) {
-                sb.append(name).append("(").append(sender).append(")");
+                entry.append(name).append("(").append(sender).append(")");
             }
             else {
-                sb.append(sender);
+                entry.append(sender);
             }
             if (!o.optString("quotedText", "").isEmpty()) {
-                sb.append(" 引用 ").append(o.optString("quotedUin", "")).append(": ").append(o.optString("quotedText", "")).append(" | ");
-            } else sb.append(": ");
-            sb.append(o.optString("text", "")).append("\n");
-            count++;
-            if (sb.length() > maxChars) {
-                sb.delete(0, sb.length() - maxChars);
-                sb.insert(0, "[前部记录因长度限制已省略]\n");
+                entry.append(" 引用 ").append(o.optString("quotedUin", "")).append(": ").append(o.optString("quotedText", "")).append(" | ");
+            } else {
+                entry.append(": ");
             }
+            entry.append(o.optString("text", ""));
+            formattedLines.add(entry.toString());
+            count++;
         }
         br.close();
     } catch (Exception e) { this.log("error.txt", "readListenLog: " + e.getMessage()); }
     if (count == 0) {
         return "";
     }
+    // 从尾部向前累加行，不超过 maxChars
+    StringBuilder sb = new StringBuilder();
+    boolean truncated = false;
+    int totalLen = 0;
+    for (int i = formattedLines.size() - 1; i >= 0; i--) {
+        String entry = (String) formattedLines.get(i);
+        int lineLen = entry.length() + 1;
+        if (totalLen + lineLen > maxChars) {
+            truncated = true;
+            break;
+        }
+        sb.insert(0, entry + "\n");
+        totalLen += lineLen;
+    }
+    if (truncated) {
+        sb.insert(0, "[前部记录因长度限制已省略]\n");
+    }
     return "共记录 " + count + " 条群聊消息。\n" + sb.toString();
 }
 
 void handleListenSummary(Object msg) {
+    aiProcessing = true;
+    try {
     String senderUin = String.valueOf(msg.userUin);
     String role = getRole(senderUin);
     if (!role.equals("ADMIN") && !role.equals("OWNER")) {
@@ -4363,11 +4382,18 @@ void handleListenSummary(Object msg) {
         sendStyledHeader(msg, "ERROR", "总结为空，监听记录未删除");
         return;
     }
+    if (content.trim().length() < 20) {
+        sendStyledHeader(msg, "ERROR", "总结内容过短，监听记录未删除");
+        return;
+    }
     if ("1".equals(getAiConfig("ai_prefix"))) {
         content = "[AI] " + content.trim();
     }
     sendMsg(peerUin, content, chatType);
     clearListenLog(peerUin, chatType);
+    } finally {
+        aiProcessing = false;
+    }
 }
 
 void executeMemoryCall(JSONObject tc, String fname, String senderUin, String userRole, String peerUin, int chatType, String sourceMsgId, String sourceText, long sourceTimeMs) {
