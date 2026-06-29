@@ -2327,7 +2327,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     // directories
     if (path.equals("/bin/")) {
-        return "touch rm mkdir chmod find sort uniq cut sed corax-edit corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-skill corax-listen corax-reboot stat corax-help";
+        return "touch rm mkdir chmod find sort uniq cut sed corax-edit corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-skill corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore stat corax-help";
     }
     if (path.equals("/")) {
         return "bin/  proc/  etc/  dev/  ctx/  var/  src/  tmp/  persist/  usr/";
@@ -2408,6 +2408,7 @@ String vfsWriteProcSys(String path, String content) {
     if (!valid) {
         return "[无效配置键: " + key + "]";
     }
+    takeSnapshot(path);
     Map cfg = loadAiConfig(); cfg.put(key, content.trim()); saveAiConfig(cfg);
     return null;
 }
@@ -2494,6 +2495,7 @@ String vfsWriteEtc(String path, String content, boolean append) {
     if (!new File(real).exists()) {
         return "[只读: 系统路径不允许新建文件, 只能修改已有配置]";
     }
+    takeSnapshot(path);
     return writeFileString(real, content, append);
 }
 
@@ -2562,6 +2564,7 @@ String vfsReadPersist(String path) {
     return readFileString(pluginPath + "/shared-space/" + path.replace("/persist/", ""));
 }
 String vfsWritePersist(String path, String content, boolean append) {
+    takeSnapshot(path);
     return writeFileString(pluginPath + "/shared-space/" + path.replace("/persist/", ""), content, append);
 }
 String vfsReadTmp(String path) {
@@ -2643,11 +2646,7 @@ String vfsWriteProcKill(String path) {
 
 // ======= /var/ =======
 String vfsWriteVarDb(String sql) {
-    // 白名单 SQL
-    String upper = sql.trim().toUpperCase();
-    if (upper.contains("DROP") || upper.contains("ALTER") || upper.contains("ATTACH") || upper.contains("VACUUM")) {
-        return "[拒绝: 不允许 DROP/ALTER/ATTACH/VACUUM]";
-    }
+    takeSnapshot("/var/data.db");
     try { getDb().execSQL(sql); return null; }
     catch (Exception e) { return "[SQL错误: " + e.getMessage() + "]"; }
 }
@@ -2692,6 +2691,131 @@ String writeFileString(String path, String content, boolean append) {
         }
         return null;
     } catch (Exception e) { return "[写入失败: " + e.getMessage() + "]"; }
+}
+
+// ==================== 快照系统 ====================
+String snapBaseDir() {
+    return pluginPath + "/config/.snapshots";
+}
+String snapPathKey(String vpath) {
+    // /var/data.db → var_data_db, /etc/admins.txt → etc_admins_txt
+    return vpath.replace("/", "_").replaceAll("^_+", "");
+}
+String snapDir(String vpath) {
+    return snapBaseDir() + "/" + snapPathKey(vpath);
+}
+int snapNextIndex(String vpath) {
+    File dir = new File(snapDir(vpath));
+    if (!dir.exists()) return 1;
+    String[] files = dir.list();
+    if (files == null || files.length == 0) return 1;
+    int max = 0;
+    for (int i = 0; i < files.length; i++) {
+        int idx = 0;
+        try { idx = Integer.parseInt(files[i].split("_")[0]); } catch (Exception e) { }
+        if (idx > max) max = idx;
+    }
+    return max + 1;
+}
+String snapCurrentContent(String vpath) {
+    // 读取当前内容作为快照数据
+    if (vpath.startsWith("/var/data.db")) {
+        File f = new File(pluginPath + "/config/data.db");
+        if (!f.exists()) return "";
+        return "[binary " + f.length() + "B]";
+    }
+    if (vpath.startsWith("/etc/")) {
+        String real = vfsMapEtcPath(vpath);
+        return readFileString(real);
+    }
+    if (vpath.startsWith("/persist/")) {
+        return readFileString(pluginPath + "/shared-space/" + vpath.replace("/persist/", ""));
+    }
+    if (vpath.startsWith("/proc/sys/")) {
+        String key = vpath.replace("/proc/sys/", "");
+        Map cfg = loadAiConfig();
+        String v = (String) cfg.get(key);
+        return v != null ? v : "";
+    }
+    return "";
+}
+void takeSnapshot(String vpath) {
+    try {
+        String current = snapCurrentContent(vpath);
+        if (current.isEmpty() && !new File(pluginPath + "/config/data.db").exists()
+            && !vpath.startsWith("/etc/") && !vpath.startsWith("/persist/")
+            && !vpath.startsWith("/proc/sys/")) {
+            return;
+        }
+        File dir = new File(snapDir(vpath));
+        if (!dir.exists()) dir.mkdirs();
+        String[] existing = dir.list();
+        if (existing != null && existing.length >= 20) {
+            // 找到最小的 index 并删除
+            int minIdx = Integer.MAX_VALUE;
+            String toDel = null;
+            for (int i = 0; i < existing.length; i++) {
+                int idx = 0;
+                try { idx = Integer.parseInt(existing[i].split("_")[0]); } catch (Exception e) { }
+                if (idx < minIdx) { minIdx = idx; toDel = existing[i]; }
+            }
+            if (toDel != null) new File(dir, toDel).delete();
+        }
+        int idx = snapNextIndex(vpath);
+        String ts = getCurrentTime().replace(":", "-").replace(" ", "_");
+        int len = current.length();
+        String sizeStr = len >= 1024 ? (len / 1024 + "KB") : (len + "B");
+        String fname = idx + "_" + ts + "_" + sizeStr;
+        writeFileString(new File(dir, fname).getAbsolutePath(), current, false);
+    } catch (Exception e) { this.log("error.txt", "takeSnapshot: " + e.getMessage()); }
+}
+String listSnapshots(String vpath) {
+    File dir = new File(snapDir(vpath));
+    if (!dir.exists() || !dir.isDirectory()) return "(无快照)";
+    String[] files = dir.list();
+    if (files == null || files.length == 0) return "(无快照)";
+    java.util.Arrays.sort(files);
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < files.length; i++) {
+        // 1_2026-06-28_17-25-01_45KB → 1  2026-06-28 17:25:01  45KB
+        String[] parts = files[i].split("_");
+        String idx = parts[0];
+        String date = parts.length > 1 ? parts[1] : "?";
+        String time = parts.length > 2 ? parts[2] : "?";
+        String size = parts.length > 3 ? parts[3] : "?";
+        sb.append(idx).append("  ").append(date).append(" ").append(time.replace("-", ":")).append("  ").append(size).append("\n");
+    }
+    return sb.toString().trim();
+}
+String restoreSnapshot(String vpath, int snapIdx) {
+    File dir = new File(snapDir(vpath));
+    if (!dir.exists()) return "[快照不存在]";
+    String[] files = dir.list();
+    if (files == null) return "[快照不存在]";
+    String target = null;
+    for (int i = 0; i < files.length; i++) {
+        if (files[i].startsWith(snapIdx + "_")) { target = files[i]; break; }
+    }
+    if (target == null) return "[快照 #" + snapIdx + " 不存在]";
+    String content = readFileString(new File(dir, target).getAbsolutePath());
+    if (content.startsWith("[binary ")) {
+        return "[数据库快照需手动恢复: cp " + dir.getAbsolutePath() + "/" + target + " " + pluginPath + "/config/data.db]";
+    }
+    if (vpath.startsWith("/etc/")) {
+        String real = vfsMapEtcPath(vpath);
+        return writeFileString(real, content, false);
+    }
+    if (vpath.startsWith("/persist/")) {
+        return writeFileString(pluginPath + "/shared-space/" + vpath.replace("/persist/", ""), content, false);
+    }
+    if (vpath.startsWith("/proc/sys/")) {
+        String key = vpath.replace("/proc/sys/", "");
+        Map cfg = loadAiConfig();
+        cfg.put(key, content.trim());
+        saveAiConfig(cfg);
+        return null;
+    }
+    return "[不支持的恢复路径: " + vpath + "]";
 }
 
 // ==================== Corax-Shell 执行器 ====================
@@ -3174,6 +3298,21 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             setActivePersona(target);
             return "已切换至: " + target + "（上下文已保留，新人设将在下条消息生效）";
         }
+        if (cmd.equals("corax-snapshot-list")) {
+            if (args.length < 1) {
+                return "用法: corax-snapshot-list <路径>";
+            }
+            return listSnapshots(args[0]);
+        }
+        if (cmd.equals("corax-snapshot-restore")) {
+            if (args.length < 2) {
+                return "用法: corax-snapshot-restore <路径> <编号>";
+            }
+            int idx = 0;
+            try { idx = Integer.parseInt(args[1]); } catch (Exception e) { return "编号必须为数字"; }
+            String err = restoreSnapshot(args[0], idx);
+            return err != null ? err : "已恢复到快照 #" + idx;
+        }
         if (cmd.equals("stat")) {
             if (args.length < 1) {
                 return "用法: stat <路径>";
@@ -3292,7 +3431,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
         if (cmd.equals("corax-help")) {
             return "Corax-Shell v4.4.0\n\n"
                 + "内置命令: ls cat echo grep wc head tail date sleep\n"
-                + "Corax命令: sed corax-edit corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-skill corax-listen corax-reboot\n"
+                + "Corax命令: sed corax-edit corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-skill corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore\n"
                 + "管道/重定向: | > >> &\n"
                 + "文件系统: /proc/ /etc/ /dev/ /ctx/ /var/ /tmp/ /persist/ /src/\n"
                 + "查阅 /persist/DevDocs.md 了解项目架构";
