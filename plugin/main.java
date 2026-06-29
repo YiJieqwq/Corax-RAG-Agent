@@ -363,10 +363,11 @@ int getTagPoolCount(SQLiteDatabase db, String uin, String tag) {
 
 void rebuildTagPool(String uin) {
     SQLiteDatabase db = getDb();
+    Cursor c = null;
     try {
         db.beginTransaction();
         db.delete("tag_pool", "uin = ?", new String[]{uin});
-        Cursor c = db.rawQuery(
+        c = db.rawQuery(
             "SELECT tags FROM memories " +
             "WHERE uin = ? AND scope = 'private' AND tags != ''",
             new String[]{uin}
@@ -399,11 +400,11 @@ void rebuildTagPool(String uin) {
                 }
             }
         }
-        c.close();
         db.setTransactionSuccessful();
     } catch (Exception e) {
         this.log("error.txt", "rebuildTagPool: " + e.getMessage());
     } finally {
+        if (c != null) c.close();
         db.endTransaction();
     }
     tagPoolCache = null;
@@ -412,10 +413,11 @@ void rebuildTagPool(String uin) {
 
 void rebuildPublicTagPool() {
     SQLiteDatabase db = getDb();
+    Cursor c = null;
     try {
         db.beginTransaction();
         db.delete("tag_pool", "uin = 'PUBLIC'", null);
-        Cursor c = db.rawQuery(
+        c = db.rawQuery(
             "SELECT tags FROM memories " +
             "WHERE scope = 'public' AND tags != ''",
             null
@@ -448,11 +450,11 @@ void rebuildPublicTagPool() {
                 }
             }
         }
-        c.close();
         db.setTransactionSuccessful();
     } catch (Exception e) {
         this.log("error.txt", "rebuildPublicTagPool: " + e.getMessage());
     } finally {
+        if (c != null) c.close();
         db.endTransaction();
     }
 }
