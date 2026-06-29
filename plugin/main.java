@@ -1625,8 +1625,6 @@ dumpMsgs.put(dj);
             dc.put("content", "");
             dc.put("tool_calls", new JSONArray());
             ai2Msgs.put(dc);
-            i--;
-            continue;
         }
         JSONObject j = new JSONObject();
         j.put("role", m.get("role"));
@@ -1959,7 +1957,7 @@ dumpMsgs.put(dj);
                         }
                     }
                     else {
-                        executeMemoryCall(rtc, rfn, senderUin, userRole);
+                        executeMemoryCall(rtc, rfn, senderUin, userRole, peerUin, chatType, String.valueOf(msg.msgId), prompt, getMsgTimeMs(msg));
                     }
                 }
             } else break;
@@ -2575,9 +2573,6 @@ String tavilyExtract(String[] urls, int maxLen) {
             String raw = r.optString("raw_content", "");
             if (raw.isEmpty()) {
                 continue;
-            }
-            if (multi) {
-                out.append("【").append(r.optString("url", "")).append("】\n");
             }
             if (multi) {
                 out.append("【").append(r.optString("url", "")).append("】\n");
@@ -4525,9 +4520,6 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 String e = entries[ei].trim();
                 if (e.isEmpty()) {
                     continue;
-                }
-                if (pattern.equals("*") || e.contains(pattern.replace("*", ""))) {
-                    sb.append(dir).append(dir.endsWith("/") ? "" : "/").append(e).append("\n");
                 }
                 if (pattern.equals("*") || e.contains(pattern.replace("*", ""))) {
                     sb.append(dir).append(dir.endsWith("/") ? "" : "/").append(e).append("\n");
