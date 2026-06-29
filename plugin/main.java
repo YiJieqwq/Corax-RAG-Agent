@@ -4298,8 +4298,8 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }, 30000);
             rmOp.put("timer", rmTm);
             pendingApprovals.put(appKey, rmOp);
-            sendMsg(peerUin, "[Corax-Shell] 请求删除快照 " + rmDesc + "，是否批准？发送 /ai operation permit 或 /ai operation reject（30 秒超时自动拒绝）", chatType);
-            return "[等待审批(30s)] 已发送快照删除请求: " + rmDesc;
+            sendMsg(peerUin, "[Corax-Shell] 请求删除快照 " + rmDesc + "，是否批准？发送 /ai operation permit 或 /ai operation reject", chatType);
+            return "";
         }
         if (cmd.equals("stat")) {
             if (args.length < 1) {
