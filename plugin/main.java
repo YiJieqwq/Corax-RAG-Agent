@@ -3675,20 +3675,15 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
                             onMainThread++;
                             try {
                                 int[] ix = new int[]{0};
-                                parseSequence(finalTokens, ix, "", bgSu, bgPu, bgCt);
+                                parseSequence(st, ix, "", bgSu, bgPu, bgCt);
                             } catch (Exception e) {}
                             finally {
                                 onMainThread--;
-                                daemons.remove(p);
-                                daemonOutputs.remove(p);
                             }
                         }
                     });
                 }
-            });
-            t.setDaemon(true); t.start();
-            daemons.put(p, t);
-            return "[pid:" + p + "]";
+            }, delayMs);
         }
 
         // 按 sleep N 拆分为链式段 [{delayMs, execTokens}, ...]
@@ -3825,12 +3820,17 @@ String parseSequence(List tokens, int[] idx, String stdin, String senderUin, Str
             idx[0]++;
             if (result != null && !result.isEmpty()) {
                 result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
+            } else {
+                // 短路：消费右端 pipeline 的 tokens 但丢弃结果
+                parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
             }
         }
         else if (op.equals("||")) {
             idx[0]++;
             if (result == null || result.isEmpty()) {
                 result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
+            } else {
+                parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
             }
         }
         else {
