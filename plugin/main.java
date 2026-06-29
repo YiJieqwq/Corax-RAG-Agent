@@ -1388,10 +1388,8 @@ void handleAi(Object msg, String prompt) {
         sendStyledHeader(msg, "INFO", "当前会话: AI " + (en.contains(peerUin + "_" + chatType) ? "已启用" : "未启用")); return;
     }
     if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
-        if (debug) {
-            sendStyledHeader(msg, "INFO", "AI 未启用，发送 /ai on 启用");
-            return;
-        }
+        sendStyledHeader(msg, "INFO", "AI 未启用，发送 /ai on 启用");
+        return;
     }
     if (!canUseAi(senderUin)) {
         sendStyledHeader(msg, "ERROR", "没有 AI 权限"); return;
@@ -1931,7 +1929,7 @@ dumpMsgs.put(dj);
                     asstTC2.put("tool_calls", sr2tc);
                     ai2Msgs.put(asstTC2);
                 }
-                if (!r2c.isEmpty()) {
+                if (!r2c.isEmpty() || sr2tc != null) {
                     addToContextTC(ctx, "assistant", r2c, null, sr2tc, null);
                 }
                 if (sr2tc != null) for (int i = 0; i < sr2tc.length(); i++) {
@@ -2788,11 +2786,39 @@ String vfsNorm(String p) {
         return "/";
     }
     p = p.trim();
-    // 去掉 // /./ /../
-    while (p.contains("//")) p = p.replace("//", "/");
-    while (p.contains("/./")) p = p.replace("/./", "/");
+    while (p.contains("//")) {
+        p = p.replace("//", "/");
+    }
+    while (p.contains("/./")) {
+        p = p.replace("/./", "/");
+    }
+    // 解析 /../ 路径穿越
+    while (p.contains("/../")) {
+        int idx = p.indexOf("/../");
+        if (idx == 0) {
+            p = p.substring(3);
+        } else {
+            int prev = p.lastIndexOf("/", idx - 1);
+            if (prev < 0) {
+                prev = 0;
+            }
+            p = p.substring(0, prev) + p.substring(idx + 3);
+        }
+    }
+    while (p.endsWith("/..")) {
+        p = p.substring(0, p.length() - 3);
+        int lastSlash = p.lastIndexOf("/");
+        if (lastSlash >= 0) {
+            p = p.substring(0, lastSlash);
+        } else {
+            p = "/";
+        }
+    }
     if (!p.startsWith("/")) {
         p = "/" + p;
+    }
+    if (p.isEmpty()) {
+        p = "/";
     }
     return p;
 }
@@ -3592,7 +3618,29 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             if (daemons.size() >= 10) {
                 return "[拒绝: daemon 数量已达上限 10，请先 kill 旧任务]";
             }
-            execTokens.add(t);
+            final int p = nextDaemonPid++;
+            Thread t = new Thread(new Runnable() {
+                public void run() {
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        public void run() {
+                            onMainThread++;
+                            try {
+                                int[] ix = new int[]{0};
+                                parseSequence(finalTokens, ix, "", bgSu, bgPu, bgCt);
+                            } catch (Exception e) {}
+                            finally {
+                                onMainThread--;
+                                daemons.remove(p);
+                                daemonOutputs.remove(p);
+                            }
+                        }
+                    });
+                }
+            });
+            t.setDaemon(true);
+            t.start();
+            daemons.put(p, t);
+            return "[pid:" + p + "]";
         }
         // 去掉 sleep 后面紧跟的 && / ;
         for (int ei = 0; ei < execTokens.size(); ei++) {
