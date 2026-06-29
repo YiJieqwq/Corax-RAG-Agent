@@ -2646,8 +2646,48 @@ String vfsWriteProcKill(String path) {
 
 // ======= /var/ =======
 String vfsWriteVarDb(String sql) {
-    takeSnapshot("/var/data.db");
-    try { getDb().execSQL(sql); return null; }
+    // 严格白名单：只允许 SELECT 查询，禁止一切写操作
+    String upper = sql.trim().toUpperCase();
+    if (upper.contains("DROP") || upper.contains("ALTER") || upper.contains("ATTACH")
+        || upper.contains("VACUUM") || upper.contains("DELETE") || upper.contains("UPDATE")
+        || upper.contains("INSERT") || upper.contains("REPLACE") || upper.contains("CREATE")
+        || upper.contains("GRANT") || upper.contains("REVOKE") || upper.contains("PRAGMA")
+        || upper.contains("REINDEX") || upper.contains("SAVEPOINT") || upper.contains("RELEASE")
+        || upper.contains("ROLLBACK") || upper.contains("BEGIN") || upper.contains("COMMIT")
+        || upper.contains("TRUNCATE")) {
+        return "[拒绝: 仅允许 SELECT 查询]";
+    }
+    if (!upper.startsWith("SELECT") && !upper.startsWith("EXPLAIN")
+        && !upper.startsWith("WITH") && !upper.startsWith("DESCRIBE")) {
+        return "[拒绝: 仅允许 SELECT 查询]";
+    }
+    try {
+        Cursor c = getDb().rawQuery(sql, null);
+        StringBuilder sb = new StringBuilder();
+        int colCount = c.getColumnCount();
+        for (int i = 0; i < colCount; i++) {
+            if (i > 0) sb.append(" | ");
+            sb.append(c.getColumnName(i));
+        }
+        sb.append("\n");
+        for (int i = 0; i < colCount; i++) {
+            if (i > 0) sb.append("-+-");
+            sb.append("---");
+        }
+        sb.append("\n");
+        int rowCount = 0;
+        while (c.moveToNext() && rowCount < 50) {
+            for (int i = 0; i < colCount; i++) {
+                if (i > 0) sb.append(" | ");
+                sb.append(c.getString(i) != null ? c.getString(i) : "NULL");
+            }
+            sb.append("\n");
+            rowCount++;
+        }
+        if (rowCount >= 50) sb.append("... (truncated, max 50 rows)\n");
+        c.close();
+        return sb.toString().isEmpty() ? "(查询结果为空)" : sb.toString().trim();
+    }
     catch (Exception e) { return "[SQL错误: " + e.getMessage() + "]"; }
 }
 
