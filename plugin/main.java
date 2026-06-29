@@ -748,14 +748,19 @@ boolean deleteMemoryById(long id, String requesterUin, String requesterRole) {
 }
 
 int deleteMemoriesByKeyword(String uin, String keyword) {
+    SQLiteDatabase db = getDb();
+    Cursor c = null;
     try {
-        Cursor c = getDb().rawQuery(
+        db.beginTransaction();
+        c = db.rawQuery(
             "SELECT tags FROM memories WHERE uin = ? AND scope = 'private' AND content LIKE ?",
             new String[]{uin, "%" + keyword + "%"});
         while (c.moveToNext()) { String tags = c.getString(0); if (tags != null && !tags.trim().isEmpty()) updateTagPool(uin, tags, -1); }
-        c.close();
-        return getDb().delete("memories", "uin = ? AND scope = 'private' AND content LIKE ?", new String[]{uin, "%" + keyword + "%"});
+        int deleted = db.delete("memories", "uin = ? AND scope = 'private' AND content LIKE ?", new String[]{uin, "%" + keyword + "%"});
+        db.setTransactionSuccessful();
+        return deleted;
     } catch (Exception e) { this.log("error.txt", "deleteMemByKw: " + e.getMessage()); return 0; }
+    finally { if (c != null) c.close(); db.endTransaction(); }
 }
 
 List searchMemoriesByTag(String uin, String tag) {
@@ -1368,6 +1373,7 @@ void handleAi(Object msg, String prompt) {
         if (!newPersona.isEmpty()) {
             addToContext(ctx, "system", "现在你需要扮演以下角色，忘记之前的身份设定：\n\n" + newPersona, null);
         }
+        saveCtxToDisk(peerUin, chatType);
         return;
     }
     if (trimmed.equals("debug") || trimmed.startsWith("debug ")) { handleDebug(msg, trimmed); return; }
@@ -2063,7 +2069,9 @@ List listPersonas() {
 }
 
 void handleReboot(Object msg, String trimmed) {
-    if (!requireAdminOrOwner(msg)) return;
+    if (!requireAdminOrOwner(msg)) {
+        return;
+    }
     String[] rp = trimmed.split("\\s+", 2);
     if (rp.length == 1) {
         List personas = listPersonas();
@@ -2084,7 +2092,9 @@ void handleReboot(Object msg, String trimmed) {
 }
 
 void handleDebug(Object msg, String trimmed) {
-    if (!requireAdminOrOwner(msg)) return;
+    if (!requireAdminOrOwner(msg)) {
+        return;
+    }
     String[] dp = trimmed.split("\\s+");
     if (dp.length == 1) { sendStyledHeader(msg, "INFO", "debug = " + getAiConfig("debug")); }
     else if (dp[1].equals("0") || dp[1].equals("1")) { Map cfg = loadAiConfig(); cfg.put("debug", dp[1]); saveAiConfig(cfg); sendStyledHeader(msg, "INFO", "debug = " + dp[1]); }
