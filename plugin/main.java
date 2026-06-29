@@ -53,7 +53,9 @@ SQLiteDatabase getDb() {
         String dbPath = pluginPath + "/config/data.db";
         File dbFile = new File(dbPath);
         File parent = dbFile.getParentFile();
-        if (parent != null && !parent.exists()) parent.mkdirs();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
         sharedDb = SQLiteDatabase.openOrCreateDatabase(dbPath, null);
         sharedDb.execSQL(
             "CREATE TABLE IF NOT EXISTS memories (" +
@@ -104,7 +106,9 @@ void closeSharedDb() {
 String loadPersona() {
     String activeName = getActivePersona();
     File dir = new File(pluginPath + "/config/prompt");
-    if (!dir.exists()) dir.mkdirs();
+    if (!dir.exists()) {
+        dir.mkdirs();
+    }
     File f = new File(pluginPath + "/config/prompt/" + activeName + ".prompt.txt");
     if (!f.exists()) {
         File oldF = new File(pluginPath + "/config/prompt.txt");
@@ -128,7 +132,10 @@ String loadPersona() {
         String line;
         boolean firstLine = true;
         while ((line = br.readLine()) != null) {
-            if (firstLine && line.startsWith("##唤醒词")) { firstLine = false; continue; }
+            if (firstLine && line.startsWith("##唤醒词")) {
+                firstLine = false;
+                continue;
+            }
             firstLine = false;
             sb.append(line).append("\n");
         }
@@ -163,7 +170,11 @@ String loadSystemPrompt() {
 List loadWakeWords() {
     String activeName = getActivePersona();
     File f = new File(pluginPath + "/config/prompt/" + activeName + ".prompt.txt");
-    if (!f.exists()) { cachedWakeWords = new ArrayList(); wakeWordsFileMtime = 0; return cachedWakeWords; }
+    if (!f.exists()) {
+        cachedWakeWords = new ArrayList();
+        wakeWordsFileMtime = 0;
+        return cachedWakeWords;
+    }
     long mtime = f.lastModified();
     if (cachedWakeWords != null && mtime == wakeWordsFileMtime) {
         return cachedWakeWords;
@@ -179,7 +190,9 @@ List loadWakeWords() {
                 String[] parts = raw.split(",");
                 for (int i = 0; i < parts.length; i++) {
                     String w = parts[i].trim();
-                    if (!w.isEmpty()) words.add(w);
+                    if (!w.isEmpty()) {
+                        words.add(w);
+                    }
                 }
             }
         }
@@ -208,15 +221,25 @@ boolean startsWithWakeWord(String text) {
 // ==================== Skills ====================
 String loadSkills() {
     File dir = new File(pluginPath + "/config/skills");
-    if (!dir.exists() || !dir.isDirectory()) { cachedSkills = ""; skillsDirMtime = 0; return ""; }
+    if (!dir.exists() || !dir.isDirectory()) {
+        cachedSkills = "";
+        skillsDirMtime = 0;
+        return "";
+    }
     long latestMtime = 0;
     File[] files = dir.listFiles(new FilenameFilter() {
         public boolean accept(File dir, String name) { return name.endsWith(".skill.txt"); }
     });
-    if (files == null || files.length == 0) { cachedSkills = ""; skillsDirMtime = 0; return ""; }
+    if (files == null || files.length == 0) {
+        cachedSkills = "";
+        skillsDirMtime = 0;
+        return "";
+    }
     for (int i = 0; i < files.length; i++) {
         long mt = files[i].lastModified();
-        if (mt > latestMtime) latestMtime = mt;
+        if (mt > latestMtime) {
+            latestMtime = mt;
+        }
     }
     if (cachedSkills != null && latestMtime == skillsDirMtime) {
         return cachedSkills;
@@ -233,8 +256,12 @@ String loadSkills() {
             br.close();
             String desc = "";
             if (firstLine != null) {
-                if (firstLine.startsWith("##简介")) desc = firstLine.substring("##简介".length()).trim();
-                    else desc = firstLine.trim();
+                if (firstLine.startsWith("##简介")) {
+                    desc = firstLine.substring("##简介".length()).trim();
+                }
+                    else {
+                        desc = firstLine.trim();
+                    }
             }
             if (!desc.isEmpty()) { sb.append(skillName).append(": ").append(desc).append("\n"); }
         } catch (Exception e) { this.log("error.txt", "loadSkills: " + e.getMessage()); }
@@ -262,7 +289,9 @@ String getDefaultAccount() {
 void setDefaultAccountConfig(String type) {
     try {
         File parent = new File(pluginPath + "/config");
-        if (!parent.exists()) parent.mkdirs();
+        if (!parent.exists()) {
+            parent.mkdirs();
+        }
         PrintWriter pw = new PrintWriter(new FileWriter(pluginPath + "/config/default_account.txt"));
         pw.println(type);
         pw.close();
@@ -290,8 +319,9 @@ boolean canUseAi(String uin) {
 // ==================== Tag 池 ====================
 Map getTagPool(String uin) {
     long now = System.currentTimeMillis();
-    if (tagPoolCache != null && uin.equals(tagPoolCacheUin) && (now - tagPoolCacheTime) < TAG_POOL_CACHE_MS)
+    if (tagPoolCache != null && uin.equals(tagPoolCacheUin) && (now - tagPoolCacheTime) < TAG_POOL_CACHE_MS) {
         return tagPoolCache;
+    }
     Map pool = new LinkedHashMap();
     Cursor c = null;
     try {
@@ -340,13 +370,18 @@ void updateTagPool(String uin, String tagsStr, int delta) {
                 cv.put("count", 1);
                 db.insert("tag_pool", null, cv);
             }
-            if (updated > 0 && newCount <= 0)
+            if (updated > 0 && newCount <= 0) {
                 db.delete("tag_pool", "uin = ? AND tag = ?", new String[]{uin, t});
+            }
         }
         db.setTransactionSuccessful();
     } catch (Exception e) { this.log("error.txt", "updateTagPool: " + e.getMessage()); }
     finally { db.endTransaction(); }
-    if (!"PUBLIC".equals(uin)) { tagPoolCache = null; tagPoolCacheTime = 0; tagPoolCacheUin = ""; }
+    if (!"PUBLIC".equals(uin)) {
+        tagPoolCache = null;
+        tagPoolCacheTime = 0;
+        tagPoolCacheUin = "";
+    }
 }
 
 int getTagPoolCount(SQLiteDatabase db, String uin, String tag) {
@@ -404,7 +439,9 @@ void rebuildTagPool(String uin) {
     } catch (Exception e) {
         this.log("error.txt", "rebuildTagPool: " + e.getMessage());
     } finally {
-        if (c != null) c.close();
+        if (c != null) {
+            c.close();
+        }
         db.endTransaction();
     }
     tagPoolCache = null;
@@ -454,7 +491,9 @@ void rebuildPublicTagPool() {
     } catch (Exception e) {
         this.log("error.txt", "rebuildPublicTagPool: " + e.getMessage());
     } finally {
-        if (c != null) c.close();
+        if (c != null) {
+            c.close();
+        }
         db.endTransaction();
     }
 }
@@ -494,20 +533,30 @@ int calcCredibility(String uin, String scope, String subjectUin) {
 
 // ==================== 记忆操作 ====================
 String normalizeSubjectUin(String recordUin, String subjectUin) {
-    if (subjectUin != null && !subjectUin.trim().isEmpty()) return subjectUin.trim();
+    if (subjectUin != null && !subjectUin.trim().isEmpty()) {
+        return subjectUin.trim();
+    }
     return recordUin != null ? recordUin : "";
 }
 
 String calcAssertionType(String recordUin, String subjectUin) {
     String su = normalizeSubjectUin(recordUin, subjectUin);
-    if (recordUin != null && recordUin.equals(su)) return "self";
-    if (su != null && !su.isEmpty()) return "reported";
+    if (recordUin != null && recordUin.equals(su)) {
+        return "self";
+    }
+    if (su != null && !su.isEmpty()) {
+        return "reported";
+    }
     return "unknown";
 }
 
 String assertionTypeLabel(String assertionType) {
-    if ("self".equals(assertionType)) return "自述";
-    if ("reported".equals(assertionType)) return "转述";
+    if ("self".equals(assertionType)) {
+        return "自述";
+    }
+    if ("reported".equals(assertionType)) {
+        return "转述";
+    }
     return "未知";
 }
 
@@ -537,8 +586,12 @@ boolean storeMemoryWithSource(String uin, String content, String tags, String sc
         cv.put("source_text", sourceText != null ? sourceText : "");
         long id = getDb().insert("memories", null, cv);
         if (id != -1) {
-            if ("public".equals(scope)) updateTagPool("PUBLIC", tags, 1);
-            else updateTagPool(uin, tags, 1);
+            if ("public".equals(scope)) {
+                updateTagPool("PUBLIC", tags, 1);
+            }
+            else {
+                updateTagPool(uin, tags, 1);
+            }
             writeLog(uin, "[MEMORY/" + scope + "] cred:" + cred + " tags:" + tags +
                 " " + content + " (id=" + id + ")");
             return true;
@@ -670,7 +723,9 @@ List getPublicMemories(int limit) {
 }
 
 String fmtTime(long ts) {
-    if (ts <= 0) return "未知";
+    if (ts <= 0) {
+        return "未知";
+    }
     try { return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(ts)); }
     catch (Exception e) { return String.valueOf(ts); }
 }
@@ -686,7 +741,9 @@ long getMsgTimeMs(Object msg) {
             tv = tf.get(msg);
         }
         long t = Long.parseLong(String.valueOf(tv));
-        if (t > 0 && t < 100000000000L) return t * 1000L;
+        if (t > 0 && t < 100000000000L) {
+            return t * 1000L;
+        }
         return t;
     } catch (Exception e) { return System.currentTimeMillis(); }
 }
@@ -720,9 +777,15 @@ Map getMemoryDetail(long id) {
 }
 
 boolean canViewMemoryDetail(Map m, String requesterUin, String requesterRole) {
-    if (m == null) return false;
-    if ("public".equals((String) m.get("scope"))) return true;
-    if (requesterRole.equals("ADMIN") || requesterRole.equals("OWNER")) return true;
+    if (m == null) {
+        return false;
+    }
+    if ("public".equals((String) m.get("scope"))) {
+        return true;
+    }
+    if (requesterRole.equals("ADMIN") || requesterRole.equals("OWNER")) {
+        return true;
+    }
     return requesterUin.equals((String) m.get("uin"));
 }
 
@@ -732,16 +795,24 @@ boolean deleteMemoryById(long id, String requesterUin, String requesterRole) {
         String tags = "";
         String memUin = "";
         String scope = "private";
-        if (c.moveToFirst()) { memUin = c.getString(0); tags = c.getString(1); scope = c.getString(2); }
+        if (c.moveToFirst()) {
+            memUin = c.getString(0);
+            tags = c.getString(1);
+            scope = c.getString(2);
+        }
         c.close();
         int deleted;
-        if (requesterRole.equals("ADMIN") || requesterRole.equals("OWNER"))
+        if (requesterRole.equals("ADMIN") || requesterRole.equals("OWNER")) {
             deleted = getDb().delete("memories", "id = ?", new String[]{String.valueOf(id)});
-        else
+        } else {
             deleted = getDb().delete("memories", "id = ? AND uin = ?", new String[]{String.valueOf(id), requesterUin});
-        if (deleted > 0 && tags != null && !tags.trim().isEmpty()) {
-            if ("public".equals(scope)) updateTagPool("PUBLIC", tags, -1);
-            else updateTagPool(memUin.isEmpty() ? requesterUin : memUin, tags, -1);
+        }
+            if ("public".equals(scope)) {
+                updateTagPool("PUBLIC", tags, -1);
+            }
+            else {
+                updateTagPool(memUin.isEmpty() ? requesterUin : memUin, tags, -1);
+            }
         }
         return deleted > 0;
     } catch (Exception e) { return false; }
@@ -755,7 +826,12 @@ int deleteMemoriesByKeyword(String uin, String keyword) {
         c = db.rawQuery(
             "SELECT tags FROM memories WHERE uin = ? AND scope = 'private' AND content LIKE ?",
             new String[]{uin, "%" + keyword + "%"});
-        while (c.moveToNext()) { String tags = c.getString(0); if (tags != null && !tags.trim().isEmpty()) updateTagPool(uin, tags, -1); }
+        while (c.moveToNext()) {
+            String tags = c.getString(0);
+            if (tags != null && !tags.trim().isEmpty()) {
+                updateTagPool(uin, tags, -1);
+            }
+        }
         int deleted = db.delete("memories", "uin = ? AND scope = 'private' AND content LIKE ?", new String[]{uin, "%" + keyword + "%"});
         db.setTransactionSuccessful();
         return deleted;
@@ -839,9 +915,15 @@ String buildStrataContext(String senderUin) {
     List privAll = getStrataPrivate(senderUin);
     int total = privAll.size();
     int topN;
-    if (total < 30) topN = total;
-    else if (total <= 150) topN = 30;
-    else topN = 50;
+    if (total < 30) {
+        topN = total;
+    }
+    else if (total <= 150) {
+        topN = 30;
+    }
+    else {
+        topN = 50;
+    }
 
     Set hotTags = new HashSet();
     Set seenPinned = new HashSet();
@@ -852,7 +934,10 @@ String buildStrataContext(String senderUin) {
         Map m = (Map) privAll.get(i);
         int pinned = (Integer) m.get("pinned");
         if (pinned == 1 && !seenPinned.contains(m.get("id"))) {
-            if (!hasPinned) { ctx.append("<pinned/>\n"); hasPinned = true; }
+            if (!hasPinned) {
+                ctx.append("<pinned/>\n");
+                hasPinned = true;
+            }
             seenPinned.add(m.get("id"));
             ctx.append("#MP").append(m.get("id")).append(" ").append(m.get("content")).append("\n");
             String tags = (String) m.get("tags");
@@ -865,7 +950,9 @@ String buildStrataContext(String senderUin) {
 
     // 热层
     int count = 0;
-    if (ctx.length() > 0 && topN > 0) ctx.append("\n");
+    if (ctx.length() > 0 && topN > 0) {
+        ctx.append("\n");
+    }
     if (topN > 0) {
         ctx.append("<archive/>\n");
         for (int i = 0; i < privAll.size() && count < topN; i++) {
@@ -893,10 +980,15 @@ String buildStrataContext(String senderUin) {
         Map.Entry en = (Map.Entry) e;
         String tag = (String) en.getKey();
         if (!hotTags.contains(tag.toLowerCase())) {
-            if (ct > 0) coldTags.append(", ");
+            if (ct > 0) {
+                coldTags.append(", ");
+            }
             coldTags.append(tag);
             ct++;
-            if (coldTags.length() > 200) { coldTags.append(" ...共" + pool.size() + "个标签"); break; }
+            if (coldTags.length() > 200) {
+                coldTags.append(" ...共" + pool.size() + "个标签");
+                break;
+            }
         }
     }
     if (coldTags.length() > 0) {
@@ -913,9 +1005,15 @@ String buildPublicStrata() {
     }
     int total = pubAll.size();
     int topN;
-    if (total < 30) topN = total;
-    else if (total <= 150) topN = 30;
-    else topN = 50;
+    if (total < 30) {
+        topN = total;
+    }
+    else if (total <= 150) {
+        topN = 30;
+    }
+    else {
+        topN = 50;
+    }
 
     Map pool = getPublicTagPool();
     Set hotTags = new HashSet();
@@ -928,7 +1026,10 @@ String buildPublicStrata() {
         Map pm = (Map) pubAll.get(i);
         int pinned = (Integer) pm.get("pinned");
         if (pinned == 1 && !seenPinned.contains(pm.get("id"))) {
-            if (!hasPinned) { ctx.append("<public_pinned/>\n"); hasPinned = true; }
+            if (!hasPinned) {
+                ctx.append("<public_pinned/>\n");
+                hasPinned = true;
+            }
             seenPinned.add(pm.get("id"));
             int cred = (Integer) pm.get("credibility");
             String ru = (String) pm.get("record_uin");
@@ -946,7 +1047,9 @@ String buildPublicStrata() {
 
     // 热层
     int count = 0;
-    if (ctx.length() > 0 && topN > 0) ctx.append("\n");
+    if (ctx.length() > 0 && topN > 0) {
+        ctx.append("\n");
+    }
     if (topN > 0) {
         ctx.append("<public_archive/>\n");
         for (int i = 0; i < pubAll.size() && count < topN; i++) {
@@ -977,14 +1080,18 @@ String buildPublicStrata() {
             Map.Entry en = (Map.Entry) e;
             String tag = (String) en.getKey();
             if (!hotTags.contains(tag.toLowerCase())) {
-                if (ct > 0) cold.append(", ");
+                if (ct > 0) {
+                    cold.append(", ");
+                }
                 cold.append(tag);
                 if (++ct >= 15) {
                     break;
                 }
             }
         }
-        if (cold.length() > 0) ctx.append("<public_coldtags>").append(cold.toString()).append("</public_coldtags> 查公有信息用 search_public_by_tag。\n");
+        if (cold.length() > 0) {
+            ctx.append("<public_coldtags>").append(cold.toString()).append("</public_coldtags> 查公有信息用 search_public_by_tag。\n");
+        }
     }
     return ctx.toString().trim();
 }
@@ -1012,7 +1119,9 @@ String buildAI2Prompt(String peerUin, int chatType) {
     else { sb.append("你是墨鸦,一个有长期记忆的 AI 助手。\n\n"); }
 
     String systemPrompt = loadSystemPrompt();
-    if (!systemPrompt.isEmpty()) sb.append(systemPrompt).append("\n\n");
+    if (!systemPrompt.isEmpty()) {
+        sb.append(systemPrompt).append("\n\n");
+    }
 
     sb.append("<skills>\n");
     sb.append("记忆：#M/#MP私有 #P/#PP公有。标签必打。用户透露信息时主动corax-mem-create。\n");
@@ -1037,7 +1146,10 @@ List getAiContext(String peerUin, int chatType) {
     if (ttl > 0 && ctx != null && !ctx.isEmpty()) {
         Map last = (Map) ctx.get(ctx.size() - 1);
         Long ts = (Long) last.get("_ts");
-        if (ts != null && (now - ts) > ttl) { aiContexts.remove(key); ctx = null; }
+        if (ts != null && (now - ts) > ttl) {
+            aiContexts.remove(key);
+            ctx = null;
+        }
     }
     // v3.0: 内存无缓存时从磁盘恢复
     if (ctx == null || ctx.isEmpty()) {
@@ -1056,19 +1168,29 @@ List getAiContext(String peerUin, int chatType) {
                     Map m = new HashMap();
                     m.put("role", j.getString("role"));
                     m.put("content", j.getString("content"));
-                    if (j.has("name")) m.put("name", j.getString("name"));
+                    if (j.has("name")) {
+                        m.put("name", j.getString("name"));
+                    }
                     // 孤儿 tool 消息（缺少 tool_call_id）跳过，防止 API 400
                     String r = j.getString("role");
-                    if ("tool".equals(r) && !j.has("tool_call_id")) continue;
-                    if (j.has("tool_calls")) m.put("tool_calls", j.getJSONArray("tool_calls"));
-                    if (j.has("tool_call_id")) m.put("tool_call_id", j.getString("tool_call_id"));
+                    if ("tool".equals(r) && !j.has("tool_call_id")) {
+                        continue;
+                    }
+                    if (j.has("tool_calls")) {
+                        m.put("tool_calls", j.getJSONArray("tool_calls"));
+                    }
+                    if (j.has("tool_call_id")) {
+                        m.put("tool_call_id", j.getString("tool_call_id"));
+                    }
                     m.put("_ts", j.getLong("_ts"));
                     ctx.add(m);
                 }
                 if (!ctx.isEmpty()) {
                     Map last = (Map) ctx.get(ctx.size() - 1);
                     Long ts = (Long) last.get("_ts");
-                    if (ts != null && (now - ts) > ttl) ctx = new ArrayList();
+                    if (ts != null && (now - ts) > ttl) {
+                        ctx = new ArrayList();
+                    }
                 }
             } catch (Exception e) { ctx = new ArrayList(); }
         }
@@ -1083,7 +1205,9 @@ void clearAiContext(String peerUin, int chatType) {
     String key = peerUin + "_" + chatType;
     aiContexts.remove(key);
     File cf = new File(pluginPath + "/config/ctx/" + key + ".json");
-    if (cf.exists()) cf.delete();
+    if (cf.exists()) {
+        cf.delete();
+    }
 }
 
 void saveCtxToDisk(String peerUin, int chatType) {
@@ -1094,16 +1218,24 @@ void saveCtxToDisk(String peerUin, int chatType) {
     }
     try {
         File dir = new File(pluginPath + "/config/ctx");
-        if (!dir.exists()) dir.mkdirs();
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
         JSONArray arr = new JSONArray();
         for (int i = 0; i < ctx.size(); i++) {
             Map m = (Map) ctx.get(i);
             JSONObject j = new JSONObject();
             j.put("role", m.get("role"));
             j.put("content", m.get("content"));
-            if (m.get("name") != null) j.put("name", m.get("name"));
-            if (m.get("tool_calls") != null) j.put("tool_calls", m.get("tool_calls"));
-            if (m.get("tool_call_id") != null) j.put("tool_call_id", m.get("tool_call_id"));
+            if (m.get("name") != null) {
+                j.put("name", m.get("name"));
+            }
+            if (m.get("tool_calls") != null) {
+                j.put("tool_calls", m.get("tool_calls"));
+            }
+            if (m.get("tool_call_id") != null) {
+                j.put("tool_call_id", m.get("tool_call_id"));
+            }
             j.put("_ts", m.get("_ts"));
             arr.put(j);
         }
@@ -1147,7 +1279,9 @@ void trimCtx(List ctx) {
 void addToContext(List ctx, String role, String content, String name) {
     Map m = new HashMap();
     m.put("role", role); m.put("content", content);
-    if (name != null) m.put("name", name);
+    if (name != null) {
+        m.put("name", name);
+    }
     m.put("_ts", System.currentTimeMillis()); ctx.add(m);
     trimCtx(ctx);
 }
@@ -1155,9 +1289,15 @@ void addToContext(List ctx, String role, String content, String name) {
 void addToContextTC(List ctx, String role, String content, String name, JSONArray toolCalls, String toolCallId) {
     Map m = new HashMap();
     m.put("role", role); m.put("content", content);
-    if (name != null) m.put("name", name);
-    if (toolCalls != null) m.put("tool_calls", toolCalls);
-    if (toolCallId != null) m.put("tool_call_id", toolCallId);
+    if (name != null) {
+        m.put("name", name);
+    }
+    if (toolCalls != null) {
+        m.put("tool_calls", toolCalls);
+    }
+    if (toolCallId != null) {
+        m.put("tool_call_id", toolCallId);
+    }
     m.put("_ts", System.currentTimeMillis()); ctx.add(m);
     trimCtx(ctx);
 }
@@ -1171,9 +1311,13 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         return null;
     }
     String model = resolveAiCfg(cfg, configPrefix + "model", "model");
-    if (model.isEmpty()) model = "deepseek-v4-flash";
+    if (model.isEmpty()) {
+        model = "deepseek-v4-flash";
+    }
     String aiUrl = resolveAiCfg(cfg, configPrefix + "api_url", "ai_url");
-    if (aiUrl.isEmpty()) aiUrl = "https://api.deepseek.com";
+    if (aiUrl.isEmpty()) {
+        aiUrl = "https://api.deepseek.com";
+    }
     HttpURLConnection conn = null;
     try {
         URL url = new URL(aiUrl + "/v1/chat/completions");
@@ -1199,7 +1343,10 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         allMsgs.put(sys);
         for (int i = 0; i < messages.length(); i++) allMsgs.put(messages.get(i));
         body.put("messages", allMsgs);
-        if (tools != null && tools.length() > 0) { body.put("tools", tools); body.put("tool_choice", "auto"); }
+        if (tools != null && tools.length() > 0) {
+            body.put("tools", tools);
+            body.put("tool_choice", "auto");
+        }
         OutputStream os = conn.getOutputStream();
         os.write(body.toString().getBytes("UTF-8"));
         os.flush();
@@ -1211,14 +1358,19 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         String line;
         while ((line = br.readLine()) != null) resp.append(line);
         br.close();
-        if (code != 200) { this.log("error.txt", "AI HTTP " + code + ": " + resp.toString()); return null; }
+        if (code != 200) {
+            this.log("error.txt", "AI HTTP " + code + ": " + resp.toString());
+            return null;
+        }
         JSONObject jResp = new JSONObject(resp.toString());
         JSONArray choices = jResp.getJSONArray("choices");
         Map result = new HashMap();
         if (choices.length() > 0) {
             JSONObject msgObj = choices.getJSONObject(0).getJSONObject("message");
             result.put("content", msgObj.has("content") ? msgObj.getString("content") : "");
-            if (msgObj.has("tool_calls")) result.put("tool_calls", msgObj.getJSONArray("tool_calls"));
+            if (msgObj.has("tool_calls")) {
+                result.put("tool_calls", msgObj.getJSONArray("tool_calls"));
+            }
         } else { result.put("content", ""); }
         if (jResp.has("usage")) {
             JSONObject usage = jResp.getJSONObject("usage");
@@ -1240,7 +1392,9 @@ void handleAi(Object msg, String prompt) {
         aiProcessing = false; return;
     }
     String peerUin = String.valueOf(msg.peerUin);
-    if ("null".equals(peerUin) && patPeerUin != null) peerUin = patPeerUin;
+    if ("null".equals(peerUin) && patPeerUin != null) {
+        peerUin = patPeerUin;
+    }
     int chatType = msg.type;
     String userRole = getRole(senderUin);
     String senderName = getMemberName(chatType, peerUin, senderUin);
@@ -1256,9 +1410,11 @@ void handleAi(Object msg, String prompt) {
         String w = (String) ww.get(i);
         if (forUser.startsWith(w)) {
             forUser = forUser.substring(w.length());
-            if (forUser.startsWith("，") || forUser.startsWith(",") || forUser.startsWith(" ") || forUser.startsWith("　"))
+            if (forUser.startsWith("，") || forUser.startsWith(",") || forUser.startsWith(" ") || forUser.startsWith("　")) {
                 forUser = forUser.substring(1);
-            forUser = forUser.trim(); break;
+            }
+                        forUser = forUser.trim();
+            break;
         }
     }
     if (trimmed.equalsIgnoreCase("on")) {
@@ -1268,7 +1424,10 @@ void handleAi(Object msg, String prompt) {
         sendStyledHeader(msg, "INFO", "当前会话 AI 已启用"); return;
     }
     if (trimmed.equalsIgnoreCase("off")) {
-        if (!userRole.equals("ADMIN") && !userRole.equals("OWNER")) { sendStyledHeader(msg, "ERROR", "权限不足"); return; }
+        if (!userRole.equals("ADMIN") && !userRole.equals("OWNER")) {
+            sendStyledHeader(msg, "ERROR", "权限不足");
+            return;
+        }
         removeFromList(pluginPath + "/config/enabled_conversations.txt", peerUin + "_" + chatType);
         sendStyledHeader(msg, "INFO", "当前会话 AI 已禁用"); return;
     }
@@ -1284,16 +1443,28 @@ void handleAi(Object msg, String prompt) {
         sendStyledHeader(msg, "ERROR", "没有 AI 权限"); return;
     }
     if (trimmed.equalsIgnoreCase("clear")) {
-        if (!userRole.equals("ADMIN") && !userRole.equals("OWNER")) { sendStyledHeader(msg, "ERROR", "权限不足"); return; }
+        if (!userRole.equals("ADMIN") && !userRole.equals("OWNER")) {
+            sendStyledHeader(msg, "ERROR", "权限不足");
+            return;
+        }
         clearAiContext(peerUin, chatType);
         sendStyledHeader(msg, "INFO", "上下文已清除"); return;
     }
-    if (trimmed.equalsIgnoreCase("config")) { handleAiConfig(msg); return; }
-    if (trimmed.startsWith("set ")) { handleAiSet(msg, trimmed.substring(4).trim()); return; }
+    if (trimmed.equalsIgnoreCase("config")) {
+        handleAiConfig(msg);
+        return;
+    }
+    if (trimmed.startsWith("set ")) {
+        handleAiSet(msg, trimmed.substring(4).trim());
+        return;
+    }
     if (trimmed.equals("memory") || trimmed.startsWith("memory ")) {
         handleAiMemory(msg, trimmed.startsWith("memory ") ? trimmed.substring(7).trim() : ""); return;
     }
-    if (trimmed.startsWith("forget ")) { handleAiForget(msg, trimmed.substring(7).trim()); return; }
+    if (trimmed.startsWith("forget ")) {
+        handleAiForget(msg, trimmed.substring(7).trim());
+        return;
+    }
     // 提前解析引用信息，供 dumpctx 和后续流程使用
     try {
         Object msgData = msg.data;
@@ -1315,7 +1486,9 @@ void handleAi(Object msg, String prompt) {
                                 java.lang.reflect.Field sf2 = re.getClass().getDeclaredField("sourceMsgId");
                                 sf2.setAccessible(true);
                                 Object smi = sf2.get(re);
-                                if (smi != null && !smi.toString().isEmpty()) quotedMsgId = smi.toString();
+                                if (smi != null && !smi.toString().isEmpty()) {
+                                    quotedMsgId = smi.toString();
+                                }
                             } catch (Exception ex3) { }
                             try {
                                 java.lang.reflect.Field sf = re.getClass().getDeclaredField("sourceMsgText");
@@ -1334,12 +1507,17 @@ void handleAi(Object msg, String prompt) {
     getDb(); List ctx = getAiContext(peerUin, chatType);
 
     if (trimmed.equals("listen") || trimmed.equals("listen on") || trimmed.equals("listen off") || trimmed.equals("listen status") || trimmed.equals("listen summary") || trimmed.equals("listen summarize")) {
-        if (!userRole.equals("ADMIN") && !userRole.equals("OWNER")) { sendPermissionDenied(msg); return; }
+        if (!userRole.equals("ADMIN") && !userRole.equals("OWNER")) {
+            sendPermissionDenied(msg);
+            return;
+        }
         String key = peerUin + "_" + chatType;
         if (trimmed.equals("listen") || trimmed.equals("listen on")) {
             clearListenLog(peerUin, chatType);
             addToList(pluginPath + "/config/listen_sessions.txt", key);
-            if (listenSessions != null) listenSessions.add(key);
+            if (listenSessions != null) {
+                listenSessions.add(key);
+            }
             List lctx = getAiContext(peerUin, chatType);
             Map lm = new HashMap();
             lm.put("role", "system");
@@ -1349,7 +1527,9 @@ void handleAi(Object msg, String prompt) {
             sendStyledHeader(msg, "INFO", "监听已开启"); return;
         } else if (trimmed.equals("listen off")) {
             removeFromList(pluginPath + "/config/listen_sessions.txt", key);
-            if (listenSessions != null) listenSessions.remove(key);
+            if (listenSessions != null) {
+                listenSessions.remove(key);
+            }
             clearListenLog(peerUin, chatType);
             List lctx = getAiContext(peerUin, chatType);
             Map lm = new HashMap();
@@ -1376,14 +1556,20 @@ void handleAi(Object msg, String prompt) {
         saveCtxToDisk(peerUin, chatType);
         return;
     }
-    if (trimmed.equals("debug") || trimmed.startsWith("debug ")) { handleDebug(msg, trimmed); return; }
+    if (trimmed.equals("debug") || trimmed.startsWith("debug ")) {
+        handleDebug(msg, trimmed);
+        return;
+    }
     Map cfg = loadAiConfig();
     if (((String) cfg.get("api_key")).isEmpty()) {
         sendStyledHeader(msg, "ERROR", "AI 未启用"); aiProcessing = false; return;
     }
 
     if (trimmed.equals("dumpctx")) {
-        if (!userRole.equals("OWNER") && !userRole.equals("ADMIN")) { sendPermissionDenied(msg); return; }
+        if (!userRole.equals("OWNER") && !userRole.equals("ADMIN")) {
+            sendPermissionDenied(msg);
+            return;
+        }
         JSONArray dumpMsgs = new JSONArray();
         String fullPrompt = buildAI2Prompt(peerUin, chatType);
         String personaText = loadPersona();
@@ -1404,9 +1590,15 @@ void handleAi(Object msg, String prompt) {
            JSONObject dj = new JSONObject();
            dj.put("role", dm.get("role"));
            dj.put("content", ctxContent);
-           if (dm.get("name") != null) dj.put("name", dm.get("name"));
-           if (dm.get("tool_calls") != null) dj.put("tool_calls", dm.get("tool_calls"));
-           if (dm.get("tool_call_id") != null) dj.put("tool_call_id", dm.get("tool_call_id"));
+           if (dm.get("name") != null) {
+               dj.put("name", dm.get("name"));
+           }
+           if (dm.get("tool_calls") != null) {
+               dj.put("tool_calls", dm.get("tool_calls"));
+           }
+           if (dm.get("tool_call_id") != null) {
+               dj.put("tool_call_id", dm.get("tool_call_id"));
+           }
 dumpMsgs.put(dj);
         }
 
@@ -1427,7 +1619,9 @@ dumpMsgs.put(dj);
         uj.put("role", "user");
         uj.put("name", senderUin);
         String ujContent = "<t>" + getCurrentTime() + "</t>";
-        if (!quotedMsgId.isEmpty()) ujContent += "<refmsgid>" + quotedMsgId + "</refmsgid>";
+        if (!quotedMsgId.isEmpty()) {
+            ujContent += "<refmsgid>" + quotedMsgId + "</refmsgid>";
+        }
         ujContent += "<u>" + prompt + "</u>";
         uj.put("content", ujContent);
         dumpMsgs.put(uj);
@@ -1452,7 +1646,9 @@ dumpMsgs.put(dj);
                 }
                 atSb.append("@").append(getMemberName(chatType, peerUin, atUin)).append("(UIN:").append(atUin).append(") ");
             }
-            if (atSb.length() > 0) atInfo = "目标: " + atSb.toString();
+            if (atSb.length() > 0) {
+                atInfo = "目标: " + atSb.toString();
+            }
         }
     } catch (Exception ignored) { }
 
@@ -1465,7 +1661,9 @@ dumpMsgs.put(dj);
                        .trim();
     senderName = senderName.replace("__", "下划线")
                        .replaceAll("[^a-zA-Z0-9\\u4e00-\\u9fa5_\\-]", "");
-    if (senderName.isEmpty()) senderName = senderUin;
+    if (senderName.isEmpty()) {
+        senderName = senderUin;
+    }
 
     aiProcessing = true;
 
@@ -1488,9 +1686,15 @@ dumpMsgs.put(dj);
         JSONObject j = new JSONObject();
         j.put("role", m.get("role"));
         j.put("content", m.get("content"));
-        if (m.get("name") != null) j.put("name", m.get("name"));
-        if (m.get("tool_calls") != null) j.put("tool_calls", m.get("tool_calls"));
-        if (m.get("tool_call_id") != null) j.put("tool_call_id", m.get("tool_call_id"));
+        if (m.get("name") != null) {
+            j.put("name", m.get("name"));
+        }
+        if (m.get("tool_calls") != null) {
+            j.put("tool_calls", m.get("tool_calls"));
+        }
+        if (m.get("tool_call_id") != null) {
+            j.put("tool_call_id", m.get("tool_call_id"));
+        }
         ai2Msgs.put(j);
     }
 
@@ -1500,7 +1704,9 @@ dumpMsgs.put(dj);
     if (!persona.isEmpty()) { sysCtx.append(persona).append("\n\n"); }
     else { sysCtx.append("你是墨鸦,一个有长期记忆的 AI 助手。\n\n"); }
     String sysPrompt = loadSystemPrompt();
-    if (!sysPrompt.isEmpty()) sysCtx.append(sysPrompt).append("\n\n");
+    if (!sysPrompt.isEmpty()) {
+        sysCtx.append(sysPrompt).append("\n\n");
+    }
 
     // 唤醒标记
     String lkey = peerUin + "_" + chatType;
@@ -1509,14 +1715,20 @@ dumpMsgs.put(dj);
     }
     // 公有记忆
     String pubStrata = buildPublicStrata();
-    if (!pubStrata.isEmpty()) sysCtx.append(pubStrata).append("\n");
+    if (!pubStrata.isEmpty()) {
+        sysCtx.append(pubStrata).append("\n");
+    }
     // 私有记忆
     String privStrata = buildStrataContext(senderUin);
-    if (!privStrata.isEmpty()) sysCtx.append(privStrata).append("\n");
+    if (!privStrata.isEmpty()) {
+        sysCtx.append(privStrata).append("\n");
+    }
 
     // 当前场景
     sysCtx.append(chatType == 2 ? "群聊 群号:" + peerUin : "私聊").append(" 时间:").append(getCurrentTime()).append("\n");
-    if (!atInfo.isEmpty()) sysCtx.append(atInfo).append("\n");
+    if (!atInfo.isEmpty()) {
+        sysCtx.append(atInfo).append("\n");
+    }
 
     // 被引用者
     if (!quotedText.isEmpty()) {
@@ -1524,7 +1736,9 @@ dumpMsgs.put(dj);
         String quotedName = getMemberName(chatType, peerUin, quotedUin);
         quotedName = quotedName.replaceAll("[<{＜【\\[（(].*?[>}＞】\\]）)]", "")
                                .replaceAll("[,，:：;；]", "").trim();
-        if (quotedName.isEmpty()) quotedName = quotedUin;
+        if (quotedName.isEmpty()) {
+            quotedName = quotedUin;
+        }
         sysCtx.append("<t>").append(getCurrentTime()).append("</t><s><user uin=\"").append(quotedUin)
               .append("\" access=\"").append(quotedRole).append("\" display=\"").append(quotedName).append("\" /></s>\n");
         sysCtx.append("<t>").append(getCurrentTime()).append("</t><quote><quoter_uid>").append(quotedUin)
@@ -1566,7 +1780,9 @@ dumpMsgs.put(dj);
     String ai2Content = ""; JSONArray ai2TCs = null;
     if (ai2Result != null) {
         ai2Content = (String) ai2Result.getOrDefault("content", "");
-        if (ai2Result.containsKey("tool_calls")) ai2TCs = (JSONArray) ai2Result.get("tool_calls");
+        if (ai2Result.containsKey("tool_calls")) {
+            ai2TCs = (JSONArray) ai2Result.get("tool_calls");
+        }
         try { totalPt += Integer.parseInt(String.valueOf(ai2Result.get("prompt_tokens"))); } catch (Exception e) { }
         try { totalCt += Integer.parseInt(String.valueOf(ai2Result.get("completion_tokens"))); } catch (Exception e) { }
     } else { sendStyledHeader(msg, "ERROR", "AI 服务暂时不可用"); aiProcessing = false; return; }
@@ -1599,11 +1815,17 @@ dumpMsgs.put(dj);
         String[] segs = ai2Content.split("\\[SPLIT\\]");
         for (int si = 0; si < segs.length; si++) {
             String seg = segs[si].trim();
-            if ("1".equals(getAiConfig("ai_prefix"))) seg = "[AI] " + seg;
+            if ("1".equals(getAiConfig("ai_prefix"))) {
+                seg = "[AI] " + seg;
+            }
             if (!seg.isEmpty()) {
                 if (isFirstReply) {
-                    if (msg.msgId != 0) sendReplyMsg(peerUin, msg.msgId, seg, chatType);
-                    else sendMsg(peerUin, seg, chatType);
+                    if (msg.msgId != 0) {
+                        sendReplyMsg(peerUin, msg.msgId, seg, chatType);
+                    }
+                    else {
+                        sendMsg(peerUin, seg, chatType);
+                    }
                     isFirstReply = false;
                 } else sendMsg(peerUin, seg, chatType);
                 hasSentReply = true;
@@ -1633,7 +1855,9 @@ dumpMsgs.put(dj);
                 cmd = (String) qr.get("cmd");
 
                 String output = shellExecLine(cmd, senderUin, peerUin, chatType);
-                if (output.isEmpty()) output = "[命令已执行，无输出]";
+                if (output.isEmpty()) {
+                    output = "[命令已执行，无输出]";
+                }
                 {
                     String tcid = tc.optString("id", "call_" + System.currentTimeMillis());
                     JSONObject sr = new JSONObject();
@@ -1663,10 +1887,14 @@ dumpMsgs.put(dj);
                 if (enable) {
                     clearListenLog(peerUin, chatType);
                     addToList(pluginPath + "/config/listen_sessions.txt", key);
-                    if (listenSessions != null) listenSessions.add(key);
+                    if (listenSessions != null) {
+                        listenSessions.add(key);
+                    }
                 } else {
                     removeFromList(pluginPath + "/config/listen_sessions.txt", key);
-                    if (listenSessions != null) listenSessions.remove(key);
+                    if (listenSessions != null) {
+                        listenSessions.remove(key);
+                    }
                     clearListenLog(peerUin, chatType);
                 }
                 Map ctxListen = new HashMap();
@@ -1696,10 +1924,19 @@ dumpMsgs.put(dj);
                         String[] segs = r2c.split("\\[SPLIT\\]");
                         for (int si = 0; si < segs.length; si++) {
                             String seg = segs[si].trim();
-                            if ("1".equals(getAiConfig("ai_prefix"))) seg = "[AI] " + seg;
+                            if ("1".equals(getAiConfig("ai_prefix"))) {
+                                seg = "[AI] " + seg;
+                            }
                             if (!seg.isEmpty()) {
-                                if (isFirstReply) { if (msg.msgId != 0) sendReplyMsg(peerUin, msg.msgId, seg, chatType); isFirstReply = false; }
-                                else sendMsg(peerUin, seg, chatType);
+                                if (isFirstReply) {
+                                    if (msg.msgId != 0) {
+                                        sendReplyMsg(peerUin, msg.msgId, seg, chatType);
+                                    }
+                                    isFirstReply = false;
+                                }
+                                else {
+                                    sendMsg(peerUin, seg, chatType);
+                                }
                                 hasSentReply = true;
                                 try { Thread.sleep(150); } catch (Exception ignored) { }
                             }
@@ -1719,10 +1956,19 @@ dumpMsgs.put(dj);
                     String[] segs = r2c.split("\\[SPLIT\\]");
                     for (int si = 0; si < segs.length; si++) {
                         String seg = segs[si].trim();
-                        if ("1".equals(getAiConfig("ai_prefix"))) seg = "[AI] " + seg;
+                        if ("1".equals(getAiConfig("ai_prefix"))) {
+                            seg = "[AI] " + seg;
+                        }
                         if (!seg.isEmpty()) {
-                            if (isFirstReply) { if (msg.msgId != 0) sendReplyMsg(peerUin, msg.msgId, seg, chatType); isFirstReply = false; }
-                            else sendMsg(peerUin, seg, chatType);
+                            if (isFirstReply) {
+                                if (msg.msgId != 0) {
+                                    sendReplyMsg(peerUin, msg.msgId, seg, chatType);
+                                }
+                                isFirstReply = false;
+                            }
+                            else {
+                                sendMsg(peerUin, seg, chatType);
+                            }
                             hasSentReply = true;
                             try { Thread.sleep(150); } catch (Exception ignored) { }
                         }
@@ -1750,7 +1996,9 @@ dumpMsgs.put(dj);
                             Map qr2 = stripQuietFlag(scmd);
                             scmd = (String) qr2.get("cmd");
                             String out = shellExecLine(scmd, senderUin, peerUin, chatType);
-                            if (out.isEmpty()) out = "[命令已执行，无输出]";
+                            if (out.isEmpty()) {
+                                out = "[命令已执行，无输出]";
+                            }
                             {
                                 String rtcid = rtc.optString("id", "rcall_" + System.currentTimeMillis());
                                 JSONObject srm = new JSONObject();
@@ -1765,7 +2013,9 @@ dumpMsgs.put(dj);
                             }
                         }
                     }
-                    else executeMemoryCall(rtc, rfn, senderUin, userRole, peerUin, chatType, String.valueOf(msg.msgId), prompt, getMsgTimeMs(msg));
+                    else {
+                        executeMemoryCall(rtc, rfn, senderUin, userRole, peerUin, chatType, String.valueOf(msg.msgId), prompt, getMsgTimeMs(msg));
+                    }
                 }
             } else break;
         }
@@ -1776,13 +2026,22 @@ dumpMsgs.put(dj);
     }
     StringBuilder finalMsg = new StringBuilder();
     if ("1".equals(getAiConfig("show_stats"))) {
-        long elapsed = (System.currentTimeMillis() - startTime) / 1000; if (elapsed < 1) elapsed = 1;
+        long elapsed = (System.currentTimeMillis() - startTime) / 1000;
+        if (elapsed < 1) {
+            elapsed = 1;
+        }
         finalMsg.append("--\nTime:").append(getCurrentTime()).append("\nUser:").append(senderUin).append("(").append(userRole).append(")");
-        if (totalPt > 0) finalMsg.append("\nTokenIn:").append(totalPt);
-        if (totalCt > 0) finalMsg.append("\nTokenOut:").append(totalCt);
+        if (totalPt > 0) {
+            finalMsg.append("\nTokenIn:").append(totalPt);
+        }
+        if (totalCt > 0) {
+            finalMsg.append("\nTokenOut:").append(totalCt);
+        }
         finalMsg.append("\nThinkTime:").append(elapsed).append("s\nAIcalls:").append(totalCalls);
     }
-    if (finalMsg.length() > 0) sendMsg(peerUin, finalMsg.toString(), chatType);
+    if (finalMsg.length() > 0) {
+        sendMsg(peerUin, finalMsg.toString(), chatType);
+    }
 
     // v3.0: 精简 ctx 存储（带注解格式）
     String sceneTag = chatType == 2 ? "[群:" + peerUin + "]" : "[私聊]";
@@ -1843,7 +2102,9 @@ Map loadAiConfig() {
                     continue;
                 }
                 int eq = line.indexOf("=");
-                if (eq > 0) cfg.put(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
+                if (eq > 0) {
+                    cfg.put(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
+                }
             }
             br.close();
         } catch (Exception e) { this.log("error.txt", "loadAiConfig: " + e.getMessage()); }
@@ -1856,11 +2117,16 @@ Map loadAiConfig() {
 void saveAiConfig(Map cfg) {
     try {
         File parent = new File(pluginPath + "/config");
-        if (!parent.exists()) parent.mkdirs();
+        if (!parent.exists()) {
+            parent.mkdirs();
+        }
         PrintWriter pw = new PrintWriter(new FileWriter(pluginPath + "/config/ai_config.txt"));
         pw.println("# 墨鸦 Strata config");
         pw.println();
-        for (Object entry : cfg.entrySet()) { Map.Entry e = (Map.Entry) entry; pw.println(e.getKey() + "=" + e.getValue()); }
+        for (Object entry : cfg.entrySet()) {
+            Map.Entry e = (Map.Entry) entry;
+            pw.println(e.getKey() + "=" + e.getValue());
+        }
         pw.close();
         aiConfigCache = null; aiConfigCacheTime = 0;
     } catch (Exception e) { this.log("error.txt", "saveAiConfig: " + e.getMessage()); }
@@ -1902,7 +2168,12 @@ Set readStringSet(String path) {
     try {
         BufferedReader br = new BufferedReader(new FileReader(f));
         String line;
-        while ((line = br.readLine()) != null) { line = line.trim(); if (!line.isEmpty()) set.add(line); }
+        while ((line = br.readLine()) != null) {
+            line = line.trim();
+            if (!line.isEmpty()) {
+                set.add(line);
+            }
+        }
         br.close();
     } catch (Exception e) { this.log("error.txt", "readStringSet: " + e.getMessage()); }
     return set;
@@ -1911,10 +2182,14 @@ Set readStringSet(String path) {
 void writeStringSet(String path, Set set) {
     File f = new File(path);
     File parent = f.getParentFile();
-    if (parent != null && !parent.exists()) parent.mkdirs();
+    if (parent != null && !parent.exists()) {
+        parent.mkdirs();
+    }
     try {
         BufferedWriter bw = new BufferedWriter(new FileWriter(f));
-        for (Object s : set) { bw.write(s + "\n"); }
+        for (Object s : set) {
+            bw.write(s + "\n");
+        }
         bw.flush(); bw.close();
     } catch (Exception e) { this.log("error.txt", "writeStringSet: " + e.getMessage()); }
 }
@@ -2030,8 +2305,13 @@ void writeLog(String senderUin, String command) {
     String logPath = pluginPath + "/config/log.txt";
     try {
         File logFile = new File(logPath);
-        if (logFile.exists() && logFile.length() > 10 * 1024 * 1024) logFile.renameTo(new File(logPath + "." + System.currentTimeMillis()));
-        if (!logFile.exists()) { logFile.getParentFile().mkdirs(); logFile.createNewFile(); }
+        if (logFile.exists() && logFile.length() > 10 * 1024 * 1024) {
+            logFile.renameTo(new File(logPath + "." + System.currentTimeMillis()));
+        }
+        if (!logFile.exists()) {
+            logFile.getParentFile().mkdirs();
+            logFile.createNewFile();
+        }
         BufferedWriter bw = new BufferedWriter(new FileWriter(logFile, true));
         bw.write("[" + getCurrentTime() + "] [" + role + "] " + senderUin + " " + command);
         bw.newLine(); bw.flush(); bw.close();
@@ -2044,7 +2324,14 @@ String getActivePersona() {
     if (!f.exists()) {
         return "default";
     }
-    try { BufferedReader br = new BufferedReader(new FileReader(f)); String s = br.readLine(); br.close(); if (s != null && !s.trim().isEmpty()) return s.trim(); } catch (Exception e) { }
+    try {
+        BufferedReader br = new BufferedReader(new FileReader(f));
+        String s = br.readLine();
+        br.close();
+        if (s != null && !s.trim().isEmpty()) {
+            return s.trim();
+        }
+    } catch (Exception e) { }
     return "default";
 }
 
@@ -2069,7 +2356,9 @@ List listPersonas() {
 }
 
 void handleReboot(Object msg, String trimmed) {
-    if (!requireAdminOrOwner(msg)) return;
+    if (!requireAdminOrOwner(msg)) {
+        return;
+    }
     String[] rp = trimmed.split("\\s+", 2);
     if (rp.length == 1) {
         List personas = listPersonas();
@@ -2082,7 +2371,10 @@ void handleReboot(Object msg, String trimmed) {
     } else {
         String target = rp[1].trim();
         File tf = new File(pluginPath + "/config/prompt/" + target + ".prompt.txt");
-        if (!tf.exists()) { sendStyledHeader(msg, "ERROR", "人设 \"" + target + "\" 不存在"); return; }
+        if (!tf.exists()) {
+            sendStyledHeader(msg, "ERROR", "人设 \"" + target + "\" 不存在");
+            return;
+        }
         setActivePersona(target);
         sendStyledHeader(msg, "SUCCESS", "已切换至: " + target + "\n上下文已保留，新人设已注入。");
     }
@@ -2090,10 +2382,17 @@ void handleReboot(Object msg, String trimmed) {
 }
 
 void handleDebug(Object msg, String trimmed) {
-    if (!requireAdminOrOwner(msg)) return;
+    if (!requireAdminOrOwner(msg)) {
+        return;
+    }
     String[] dp = trimmed.split("\\s+");
     if (dp.length == 1) { sendStyledHeader(msg, "INFO", "debug = " + getAiConfig("debug")); }
-    else if (dp[1].equals("0") || dp[1].equals("1")) { Map cfg = loadAiConfig(); cfg.put("debug", dp[1]); saveAiConfig(cfg); sendStyledHeader(msg, "INFO", "debug = " + dp[1]); }
+    else if (dp[1].equals("0") || dp[1].equals("1")) {
+        Map cfg = loadAiConfig();
+        cfg.put("debug", dp[1]);
+        saveAiConfig(cfg);
+        sendStyledHeader(msg, "INFO", "debug = " + dp[1]);
+    }
     else { sendStyledHeader(msg, "ERROR", "用法: /ai debug 0/1"); }
 }
 // ==================== 联网搜索 ====================
@@ -2169,7 +2468,9 @@ String bochaSearch(String query) {
         while ((line = br.readLine()) != null) resp.append(line);
         br.close();
         JSONObject jResp = new JSONObject(resp.toString());
-        if (jResp.has("data")) jResp = jResp.getJSONObject("data");
+        if (jResp.has("data")) {
+            jResp = jResp.getJSONObject("data");
+        }
         JSONArray results = jResp.has("webPages") ? jResp.getJSONObject("webPages").getJSONArray("value") : null;
         if (results == null || results.length() == 0) {
             return "[搜索无结果]";
@@ -2178,8 +2479,15 @@ String bochaSearch(String query) {
         for (int i = 0; i < Math.min(results.length(), 8); i++) {
             JSONObject r = results.getJSONObject(i);
             String summary = r.optString("summary", "");
-            if (!summary.isEmpty()) { if (summary.length() > 300) summary = summary.substring(0, 300) + "..."; out.append(i + 1).append(". ").append(summary); }
-            else out.append(i + 1).append(". ").append(r.optString("snippet", ""));
+            if (!summary.isEmpty()) {
+                if (summary.length() > 300) {
+                    summary = summary.substring(0, 300) + "...";
+                }
+                out.append(i + 1).append(". ").append(summary);
+            }
+            else {
+                out.append(i + 1).append(". ").append(r.optString("snippet", ""));
+            }
             out.append("\n");
         }
         return out.toString().trim();
@@ -2225,9 +2533,13 @@ String tavilySearch(String query) {
             JSONObject r = results.getJSONObject(i);
             String title = r.optString("title", "");
             String snippet = r.optString("content", "");
-            if (snippet.length() > 300) snippet = snippet.substring(0, 300) + "...";
+            if (snippet.length() > 300) {
+                snippet = snippet.substring(0, 300) + "...";
+            }
             out.append(i + 1).append(". ");
-            if (!title.isEmpty()) out.append(title).append("\n   ");
+            if (!title.isEmpty()) {
+                out.append(title).append("\n   ");
+            }
             out.append(snippet).append("\n");
         }
         return out.toString().trim();
@@ -2279,14 +2591,18 @@ String tavilyExtract(String[] urls, int maxLen) {
             if (raw.isEmpty()) {
                 continue;
             }
-            if (multi) out.append("【").append(r.optString("url", "")).append("】\n");
+            if (multi) {
+                out.append("【").append(r.optString("url", "")).append("】\n");
+            }
             out.append(raw).append("\n");
         }
         if (out.length() == 0) {
             return "[抓取失败: 内容为空]";
         }
         String result = out.toString().trim();
-        if (result.length() > maxLen) result = result.substring(0, maxLen);
+        if (result.length() > maxLen) {
+            result = result.substring(0, maxLen);
+        }
         return result;
     } catch (Exception e) { return "[抓取异常: " + e.getMessage() + "]"; }
     finally { if (conn != null) conn.disconnect(); }
@@ -2295,7 +2611,9 @@ String tavilyExtract(String[] urls, int maxLen) {
 // fetch_page 路由：tavily 时走 Extract API（支持批量），失败降级原始抓取
 String doFetchPage(String urlStr) {
     String[] urls = urlStr.trim().split("[\\s,]+");
-    if (urls.length > 5) urls = Arrays.copyOfRange(urls, 0, 5); // 单次最多抓取 5 个 URL
+    if (urls.length > 5) {
+        urls = Arrays.copyOfRange(urls, 0, 5); // 单次最多抓取 5 个 URL;
+    }
     String provider = (String) loadAiConfig().get("search_provider");
     if ("tavily".equals(provider)) {
         String result = tavilyExtract(urls, 6000);
@@ -2312,7 +2630,9 @@ String doFetchPage(String urlStr) {
             continue;
         }
         String c = fetchWebContentSimple(urls[i], budget);
-        if (multi) out.append("【").append(urls[i]).append("】\n");
+        if (multi) {
+            out.append("【").append(urls[i]).append("】\n");
+        }
         out.append(c).append("\n");
     }
     return out.toString().trim();
@@ -2332,10 +2652,19 @@ String fetchWebContentSimple(String urlStr, int maxLen) {
         }
         BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         StringBuilder sb = new StringBuilder(); String line; int total = 0;
-        while ((line = br.readLine()) != null && total < maxLen) { String t = line.trim(); if (t.length() == 0) continue; sb.append(t).append("\n"); total += t.length(); }
+        while ((line = br.readLine()) != null && total < maxLen) {
+            String t = line.trim();
+            if (t.length() == 0) {
+                continue;
+            }
+            sb.append(t).append("\n");
+            total += t.length();
+        }
         br.close();
         String result = sb.toString().trim();
-        if (result.length() > maxLen) result = result.substring(0, maxLen);
+        if (result.length() > maxLen) {
+            result = result.substring(0, maxLen);
+        }
         return result;
     } catch (Exception e) { return "[抓取异常]"; }
     finally { if (conn != null) conn.disconnect(); }
@@ -2437,8 +2766,14 @@ String vfsWrite(String path, String content, boolean append, String senderUin, S
     if (path.startsWith("/etc/")) {
         return vfsWriteEtc(path, content, append);
     }
-    if (path.equals("/dev/out")) { vfsWriteDevOut(content, peerUin, chatType); return null; }
-    if (path.equals("/dev/exit")) { vfsWriteDevExit(content); return null; }
+    if (path.equals("/dev/out")) {
+        vfsWriteDevOut(content, peerUin, chatType);
+        return null;
+    }
+    if (path.equals("/dev/exit")) {
+        vfsWriteDevExit(content);
+        return null;
+    }
     if (path.startsWith("/persist/")) {
         return vfsWritePersist(path, content, append);
     }
@@ -2470,18 +2805,28 @@ String vfsNorm(String p) {
             p = p.substring(3);
         } else {
             int prev = p.lastIndexOf("/", idx - 1);
-            if (prev < 0) prev = 0;
+            if (prev < 0) {
+                prev = 0;
+            }
             p = p.substring(0, prev) + p.substring(idx + 3);
         }
     }
     while (p.endsWith("/..")) {
         p = p.substring(0, p.length() - 3);
         int lastSlash = p.lastIndexOf("/");
-        if (lastSlash >= 0) p = p.substring(0, lastSlash);
-        else p = "/";
+        if (lastSlash >= 0) {
+            p = p.substring(0, lastSlash);
+        }
+        else {
+            p = "/";
+        }
     }
-    if (!p.startsWith("/")) p = "/" + p;
-    if (p.isEmpty()) p = "/";
+    if (!p.startsWith("/")) {
+        p = "/" + p;
+    }
+    if (p.isEmpty()) {
+        p = "/";
+    }
     return p;
 }
 
@@ -2494,7 +2839,9 @@ String vfsReadProcSys(String path) {
         if (v == null || v.isEmpty()) {
             return "(未设置)";
         }
-        if (v.length() > 8) v = v.substring(0, 4) + "****" + v.substring(v.length() - 4);
+        if (v.length() > 8) {
+            v = v.substring(0, 4) + "****" + v.substring(v.length() - 4);
+        }
         return v;
     }
     String v = getAiConfig(key);
@@ -2526,7 +2873,9 @@ String vfsReadProcSelf(String path, String senderUin, int chatType, String peerU
         return peerUin + "_" + chatType;
     }
     if (path.equals("/proc/self/listening")) {
-        if (listenSessions == null) listenSessions = readStringSet(pluginPath + "/config/listen_sessions.txt");
+        if (listenSessions == null) {
+            listenSessions = readStringSet(pluginPath + "/config/listen_sessions.txt");
+        }
         return listenSessions.contains(peerUin + "_" + chatType) ? "yes" : "no";
     }
     return "[未知: " + path + "]";
@@ -2544,7 +2893,9 @@ String vfsReadProcPrompt(String path) {
         for (int i = 0; i < personas.size(); i++) {
             String p = (String) personas.get(i);
             sb.append(p);
-            if (p.equals(cur)) sb.append(" [active]");
+            if (p.equals(cur)) {
+                sb.append(" [active]");
+            }
             sb.append("\n");
         }
         return sb.toString().trim();
@@ -2555,7 +2906,12 @@ String vfsWritePromptActive(String content) {
     String target = content.trim();
     List personas = listPersonas();
     boolean found = false;
-    for (int i = 0; i < personas.size(); i++) { if (personas.get(i).equals(target)) { found = true; break; } }
+    for (int i = 0; i < personas.size(); i++) {
+        if (personas.get(i).equals(target)) {
+            found = true;
+            break;
+        }
+    }
     if (!found) {
         return "[人设不存在: " + target + "]";
     }
@@ -2682,7 +3038,9 @@ String vfsWriteTmp(String path, String content, boolean append) {
     if (existing != null && existing.length() + content.length() > 100000) {
         return "[tmp 单文件超限 100KB]";
     }
-    if (append && existing != null) content = existing + content;
+    if (append && existing != null) {
+        content = existing + content;
+    }
     vfsTmp.put(path, content);
     return null;
 }
@@ -2707,10 +3065,14 @@ String vfsReadProcPS() {
         long endMs = Long.parseLong(String.valueOf(job.get("end")));
         String stat = "done".equals(job.get("status")) ? "D" : (now < endMs ? "P" : "T");
         String cmd = String.valueOf(job.get("cmd"));
-        if (cmd.length() > 40) cmd = cmd.substring(0, 40) + "...";
+        if (cmd.length() > 40) {
+            cmd = cmd.substring(0, 40) + "...";
+        }
         sb.append(pid).append("    ").append(stat).append("    ").append(cmd).append("\n");
     }
-    if (daemons.isEmpty() && delayJobs.isEmpty()) sb.append("(无活跃任务)\n");
+    if (daemons.isEmpty() && delayJobs.isEmpty()) {
+        sb.append("(无活跃任务)\n");
+    }
     return sb.toString();
 }
 String vfsReadProcFree() {
@@ -2768,7 +3130,9 @@ String vfsWriteProcKill(String path) {
         String pidStr = path.replace("/proc/", "").replace("/kill", "").trim();
         int pid = Integer.parseInt(pidStr);
         Thread t = (Thread) daemons.get(pid);
-        if (t != null && t.isAlive()) t.interrupt();
+        if (t != null && t.isAlive()) {
+            t.interrupt();
+        }
         daemons.remove(pid);
         daemonOutputs.remove(pid);
         return null;
@@ -2797,25 +3161,33 @@ String vfsWriteVarDb(String sql) {
         StringBuilder sb = new StringBuilder();
         int colCount = c.getColumnCount();
         for (int i = 0; i < colCount; i++) {
-            if (i > 0) sb.append(" | ");
+            if (i > 0) {
+                sb.append(" | ");
+            }
             sb.append(c.getColumnName(i));
         }
         sb.append("\n");
         for (int i = 0; i < colCount; i++) {
-            if (i > 0) sb.append("-+-");
+            if (i > 0) {
+                sb.append("-+-");
+            }
             sb.append("---");
         }
         sb.append("\n");
         int rowCount = 0;
         while (c.moveToNext() && rowCount < 50) {
             for (int i = 0; i < colCount; i++) {
-                if (i > 0) sb.append(" | ");
+                if (i > 0) {
+                    sb.append(" | ");
+                }
                 sb.append(c.getString(i) != null ? c.getString(i) : "NULL");
             }
             sb.append("\n");
             rowCount++;
         }
-        if (rowCount >= 50) sb.append("... (truncated, max 50 rows)\n");
+        if (rowCount >= 50) {
+            sb.append("... (truncated, max 50 rows)\n");
+        }
         c.close();
         return sb.toString().isEmpty() ? "(查询结果为空)" : sb.toString().trim();
     }
@@ -2850,7 +3222,9 @@ String writeFileString(String path, String content, boolean append) {
     try {
         File f = new File(path);
         File parent = f.getParentFile();
-        if (parent != null && !parent.exists()) parent.mkdirs();
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs();
+        }
         if (append && f.exists()) {
             FileWriter fw = new FileWriter(f, true);
             fw.write(content);
@@ -2889,31 +3263,68 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
     while (pos < line.length()) {
         char c = line.charAt(pos);
         // 空白跳过
-        if (c == ' ' || c == '\t') { pos++; continue; }
+        if (c == ' ' || c == '\t') {
+            pos++;
+            continue;
+        }
         // 注释
         if (c == '#') {
             break;
         }
         // 后台
-        if (c == '&' && pos == line.length() - 1) { tokens.add("&"); break; }
-        if (c == '&' && pos + 1 < line.length() && line.charAt(pos + 1) == '&') { tokens.add("&&"); pos += 2; continue; }
+        if (c == '&' && pos == line.length() - 1) {
+            tokens.add("&");
+            break;
+        }
+        if (c == '&' && pos + 1 < line.length() && line.charAt(pos + 1) == '&') {
+            tokens.add("&&");
+            pos += 2;
+            continue;
+        }
         // OR
-        if (c == '|' && pos + 1 < line.length() && line.charAt(pos + 1) == '|') { tokens.add("||"); pos += 2; continue; }
+        if (c == '|' && pos + 1 < line.length() && line.charAt(pos + 1) == '|') {
+            tokens.add("||");
+            pos += 2;
+            continue;
+        }
         // 管道
-        if (c == '|') { tokens.add("|"); pos++; continue; }
+        if (c == '|') {
+            tokens.add("|");
+            pos++;
+            continue;
+        }
         // 分号
-        if (c == ';') { tokens.add(";"); pos++; continue; }
+        if (c == ';') {
+            tokens.add(";
+            ");
+            pos++;
+            continue;
+        }
         // 重定向
-        if (c == '>' && pos + 1 < line.length() && line.charAt(pos + 1) == '>') { tokens.add(">>"); pos += 2; continue; }
-        if (c == '>') { tokens.add(">"); pos++; continue; }
-        if (c == '<') { tokens.add("<"); pos++; continue; }
+        if (c == '>' && pos + 1 < line.length() && line.charAt(pos + 1) == '>') {
+            tokens.add(">>");
+            pos += 2;
+            continue;
+        }
+        if (c == '>') {
+            tokens.add(">");
+            pos++;
+            continue;
+        }
+        if (c == '<') {
+            tokens.add("<");
+            pos++;
+            continue;
+        }
         // 引号字符串
         if (c == '"' || c == '\'') {
             char quote = c;
             int startQ = ++pos;
             while (pos < line.length() && line.charAt(pos) != quote) pos++;
             tokens.add(line.substring(startQ, pos));
-            if (pos < line.length()) pos++; // skip closing quote
+            if (pos < line.length()) {
+                pos++; // skip closing quote;
+            }
             continue;
         }
         // 普通单词
@@ -2927,7 +3338,9 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
 
     // 后台标记
     boolean bg = tokens.size() > 0 && tokens.get(tokens.size() - 1).equals("&");
-    if (bg) tokens.remove(tokens.size() - 1);
+    if (bg) {
+        tokens.remove(tokens.size() - 1);
+    }
 
     // 延时后台命令检测：sleep N && cmd &
     boolean hasDelay = false;
@@ -3013,14 +3426,18 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         StringBuilder preview = new StringBuilder();
         for (int si = 0; si < segments.size(); si++) {
             Map seg = (Map) segments.get(si);
-            if (si > 0) preview.append("; ");
+            if (si > 0) {
+                preview.append("; ");
+            }
             long d = Long.parseLong(String.valueOf(seg.get("delay")));
             List toks = (List) seg.get("tokens");
             preview.append("sleep ").append(d / 1000).append(" ");
             for (int ti = 0; ti < Math.min(toks.size(), 3); ti++) {
                 preview.append(toks.get(ti)).append(" ");
             }
-            if (toks.size() > 3) preview.append("...");
+            if (toks.size() > 3) {
+                preview.append("...");
+            }
         }
         return "[延时链: " + preview.toString().trim() + "]";
     }
@@ -3033,20 +3450,33 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
 
 // 链式调度延时任务段 [{delay, tokens}, ...]
 void scheduleChain(final List segments, final int index, final String bgSu, final String bgPu, final int bgCt) {
-    if (index >= segments.size()) return;
+    if (index >= segments.size()) {
+        return;
+    }
     final Map seg = (Map) segments.get(index);
     final long delayMs = Long.parseLong(String.valueOf(seg.get("delay")));
     final List segTokens = (List) seg.get("tokens");
-    if (segTokens.isEmpty()) { scheduleChain(segments, index + 1, bgSu, bgPu, bgCt); return; }
+    if (segTokens.isEmpty()) {
+        scheduleChain(segments, index + 1, bgSu, bgPu, bgCt);
+        return;
+    }
     // 清理首部 && / ;
     while (!segTokens.isEmpty() && (segTokens.get(0).equals("&&") || segTokens.get(0).equals(";"))) {
         segTokens.remove(0);
     }
-    if (segTokens.isEmpty()) { scheduleChain(segments, index + 1, bgSu, bgPu, bgCt); return; }
+    if (segTokens.isEmpty()) {
+        scheduleChain(segments, index + 1, bgSu, bgPu, bgCt);
+        return;
+    }
     // 注册到进程表
     final int jobPid = nextDaemonPid++;
     StringBuilder cmdPreview = new StringBuilder();
-    for (int ti = 0; ti < Math.min(segTokens.size(), 4); ti++) { if (ti > 0) cmdPreview.append(" "); cmdPreview.append(segTokens.get(ti)); }
+    for (int ti = 0; ti < Math.min(segTokens.size(), 4); ti++) {
+        if (ti > 0) {
+            cmdPreview.append(" ");
+        }
+        cmdPreview.append(segTokens.get(ti));
+    }
     Map job = new HashMap();
     job.put("cmd", cmdPreview.toString());
     job.put("begin", System.currentTimeMillis());
@@ -3059,7 +3489,9 @@ void scheduleChain(final List segments, final int index, final String bgSu, fina
     task.put("tokens", new ArrayList(segTokens));
     task.put("su", bgSu); task.put("pu", bgPu); task.put("ct", bgCt);
     delayedTasks.add(task);
-    if (delayTimer == null) delayTimer = new Timer(true);
+    if (delayTimer == null) {
+        delayTimer = new Timer(true);
+    }
     delayTimer.schedule(new TimerTask() {
         public void run() {
             task.put("fired", Boolean.TRUE);
@@ -3085,7 +3517,10 @@ String parseSequence(List tokens, int[] idx, String stdin, String senderUin, Str
     String result = parsePipeline(tokens, idx, stdin, senderUin, peerUin, chatType);
     while (idx[0] < tokens.size()) {
         String op = (String) tokens.get(idx[0]);
-        if (op.equals(";")) { idx[0]++; result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType); }
+        if (op.equals(";")) {
+            idx[0]++;
+            result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
+        }
         else if (op.equals("&&")) {
             idx[0]++;
             if (result != null && !result.isEmpty()) {
@@ -3098,7 +3533,9 @@ String parseSequence(List tokens, int[] idx, String stdin, String senderUin, Str
                 result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
             }
         }
-        else break;
+        else {
+            break;
+        }
     }
     return result;
 }
@@ -3115,9 +3552,28 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
             if (t.equals("|") || t.equals(";") || t.equals("&&") || t.equals("||")) {
                 break;
             }
-            if (t.equals(">")) { idx[0]++; if (idx[0] < tokens.size()) outRedir = (String) tokens.get(idx[0]++); continue; }
-            if (t.equals(">>")) { idx[0]++; outAppend = true; if (idx[0] < tokens.size()) outRedir = (String) tokens.get(idx[0]++); continue; }
-            if (t.equals("<")) { idx[0]++; if (idx[0] < tokens.size()) inRedir = (String) tokens.get(idx[0]++); continue; }
+            if (t.equals(">")) {
+                idx[0]++;
+                if (idx[0] < tokens.size()) {
+                    outRedir = (String) tokens.get(idx[0]++);
+                }
+                continue;
+            }
+            if (t.equals(">>")) {
+                idx[0]++;
+                outAppend = true;
+                if (idx[0] < tokens.size()) {
+                    outRedir = (String) tokens.get(idx[0]++);
+                }
+                continue;
+            }
+            if (t.equals("<")) {
+                idx[0]++;
+                if (idx[0] < tokens.size()) {
+                    inRedir = (String) tokens.get(idx[0]++);
+                }
+                continue;
+            }
             cmdArgs.add(t);
             idx[0]++;
         }
@@ -3127,7 +3583,9 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
         }
 
         // 输入重定向
-        if (inRedir != null) pipeIn = vfsRead(inRedir, senderUin, peerUin, chatType);
+        if (inRedir != null) {
+            pipeIn = vfsRead(inRedir, senderUin, peerUin, chatType);
+        }
 
         // 执行命令
         String cmd = (String) cmdArgs.get(0);
@@ -3150,7 +3608,10 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
         }
 
         // 检查管道
-        if (idx[0] < tokens.size() && tokens.get(idx[0]).equals("|")) { idx[0]++; continue; }
+        if (idx[0] < tokens.size() && tokens.get(idx[0]).equals("|")) {
+            idx[0]++;
+            continue;
+        }
         break;
     }
     return pipeIn;
@@ -3161,7 +3622,12 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
     try {
         if (cmd.equals("echo")) {
             StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < args.length; i++) { if (i > 0) sb.append(" "); sb.append(args[i]); }
+            for (int i = 0; i < args.length; i++) {
+                if (i > 0) {
+                    sb.append(" ");
+                }
+                sb.append(args[i]);
+            }
             return sb.toString();
         }
         if (cmd.equals("cat")) {
@@ -3169,15 +3635,21 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 return stdin;
             }
             String path = args[0];
-            if (path.startsWith("-")) path = args.length > 1 ? args[1] : args[0];
+            if (path.startsWith("-")) {
+                path = args.length > 1 ? args[1] : args[0];
+            }
             if (path.equals("-")) {
                 return stdin;
             }
             // 二进制文件保护
             if (path.startsWith("/persist/") || path.startsWith("/var/")) {
                 String real = path;
-                if (path.startsWith("/persist/")) real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
-                else if (path.startsWith("/var/")) real = pluginPath + "/config/" + path.replace("/var/", "");
+                if (path.startsWith("/persist/")) {
+                    real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
+                }
+                else if (path.startsWith("/var/")) {
+                    real = pluginPath + "/config/" + path.replace("/var/", "");
+                }
                 File f = new File(real);
                 if (f.isFile() && f.length() > 100 * 1024) {
                     return "文件过大 (" + (f.length() / 1024) + "KB), 禁止读取。使用 corax-sendfile 发送。";
@@ -3189,7 +3661,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                         fis.read(head);
                         fis.close();
                         for (int bi = 0; bi < head.length; bi++) {
-                            if (head[bi] == 0) return "[二进制文件，不可 cat。使用 stat 查看信息]";
+                            if (head[bi] == 0) {
+                                return "[二进制文件，不可 cat。使用 stat 查看信息]";
+                            }
                         }
                     } catch (Exception e) { return "[读取失败]"; }
                 }
@@ -3199,25 +3673,38 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
         if (cmd.equals("ls")) {
             String path = "/";
             for (int i = 0; i < args.length; i++) {
-                if (!args[i].startsWith("-")) { path = args[i]; break; }
+                if (!args[i].startsWith("-")) {
+                    path = args[i];
+                    break;
+                }
             }
             // 真实文件系统路径：只列目录，不读文件内容
             if (path.startsWith("/persist/") || path.startsWith("/var/") || path.startsWith("/etc/")) {
                 String real = path;
-                if (path.startsWith("/persist/")) real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
-                else if (path.startsWith("/var/")) real = pluginPath + "/config/" + path.replace("/var/", "");
-                else real = pluginPath + "/config/" + path.replace("/etc/", "");
+                if (path.startsWith("/persist/")) {
+                    real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
+                }
+                else if (path.startsWith("/var/")) {
+                    real = pluginPath + "/config/" + path.replace("/var/", "");
+                }
+                else {
+                    real = pluginPath + "/config/" + path.replace("/etc/", "");
+                }
                 File f = new File(real);
                 if (f.isDirectory()) {
                     String[] files = f.list();
-                    if (files == null || files.length == 0) return "(空)";
+                    if (files == null || files.length == 0) {
+                        return "(空)";
+                    }
                     StringBuilder sb = new StringBuilder();
                     for (int fi = 0; fi < files.length; fi++) sb.append(files[fi]).append("\n");
                     return sb.toString().trim();
                 }
                 if (f.isFile()) {
                     long size = f.length();
-                    if (size > 1024 * 1024) return "文件太大，无法预览 (" + (size / 1024 / 1024) + "MB)";
+                    if (size > 1024 * 1024) {
+                        return "文件太大，无法预览 (" + (size / 1024 / 1024) + "MB)";
+                    }
                     return f.getName() + " (" + size + " bytes)";
                 }
                 return "(文件不存在)";
@@ -3228,8 +3715,12 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             boolean invert = false;
             String pattern = null;
             for (int i = 0; i < args.length; i++) {
-                if (args[i].equals("-v")) invert = true;
-                else if (pattern == null) pattern = args[i];
+                if (args[i].equals("-v")) {
+                    invert = true;
+                }
+                else if (pattern == null) {
+                    pattern = args[i];
+                }
             }
             if (pattern == null) {
                 return "grep: 需要模式";
@@ -3238,8 +3729,12 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < lines.length; i++) {
                 boolean match = lines[i].contains(pattern);
-                if (invert) match = !match;
-                if (match) sb.append(lines[i]).append("\n");
+                if (invert) {
+                    match = !match;
+                }
+                if (match) {
+                    sb.append(lines[i]).append("\n");
+                }
             }
             return sb.toString().trim();
         }
@@ -3297,7 +3792,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             String pattern = args[0];
             String filePath = args[1];
             boolean global = pattern.endsWith("g");
-            if (global) pattern = pattern.substring(0, pattern.length() - 1);
+            if (global) {
+                pattern = pattern.substring(0, pattern.length() - 1);
+            }
             if (!pattern.startsWith("s/") || !pattern.endsWith("/")) {
                 return "sed: 需 s/old/new/ 或 s/old/new/g";
             }
@@ -3312,7 +3809,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             if (content.startsWith("(") || content.startsWith("[")) {
                 return "sed: " + content;
             }
-            if (global) content = content.replace(oldStr, newStr);
+            if (global) {
+                content = content.replace(oldStr, newStr);
+            }
             else { int f = content.indexOf(oldStr); if (f >= 0) content = content.substring(0, f) + newStr + content.substring(f + oldStr.length()); }
             String err = vfsWrite(filePath, content, false, senderUin, peerUin, chatType);
             return err != null ? err : "替换完成";
@@ -3325,8 +3824,16 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             StringBuilder oldB = new StringBuilder(); StringBuilder newB = new StringBuilder();
             boolean sepReached = false;
             for (int i = 1; i < args.length; i++) {
-                if (!sepReached && args[i].equals("---")) { sepReached = true; continue; }
-                if (!sepReached) { if (oldB.length() > 0) oldB.append(" "); oldB.append(args[i]); }
+                if (!sepReached && args[i].equals("---")) {
+                    sepReached = true;
+                    continue;
+                }
+                if (!sepReached) {
+                    if (oldB.length() > 0) {
+                        oldB.append(" ");
+                    }
+                    oldB.append(args[i]);
+                }
                 else { if (newB.length() > 0) newB.append(" "); newB.append(args[i]); }
             }
             if (!sepReached) {
@@ -3353,11 +3860,24 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
         if (cmd.equals("corax-mem-create")) {
             boolean pub = false; String tags = "", content = "", about = "";
             int ai = 0;
-            if (ai < args.length && args[ai].equals("--public")) { pub = true; ai++; }
-            if (ai < args.length && args[ai].startsWith("--about=")) { about = args[ai].substring(8); ai++; }
-            if (ai < args.length) tags = args[ai++];
+            if (ai < args.length && args[ai].equals("--public")) {
+                pub = true;
+                ai++;
+            }
+            if (ai < args.length && args[ai].startsWith("--about=")) {
+                about = args[ai].substring(8);
+                ai++;
+            }
+            if (ai < args.length) {
+                tags = args[ai++];
+            }
             StringBuilder sb = new StringBuilder();
-            for (int i = ai; i < args.length; i++) { if (i > ai) sb.append(" "); sb.append(args[i]); }
+            for (int i = ai; i < args.length; i++) {
+                if (i > ai) {
+                    sb.append(" ");
+                }
+                sb.append(args[i]);
+            }
             content = sb.toString();
             if (tags.isEmpty() || content.isEmpty()) {
                 return "用法: corax-mem-create [--public] [--about=<uin>] <tags> <content>";
@@ -3399,17 +3919,23 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             if (args[0].equals("on")) {
                 clearListenLog(peerUin, chatType);
                 addToList(pluginPath + "/config/listen_sessions.txt", peerUin + "_" + chatType);
-                if (listenSessions != null) listenSessions.add(peerUin + "_" + chatType);
+                if (listenSessions != null) {
+                    listenSessions.add(peerUin + "_" + chatType);
+                }
                 return "监听已开启";
             }
             if (args[0].equals("off")) {
                 removeFromList(pluginPath + "/config/listen_sessions.txt", peerUin + "_" + chatType);
-                if (listenSessions != null) listenSessions.remove(peerUin + "_" + chatType);
+                if (listenSessions != null) {
+                    listenSessions.remove(peerUin + "_" + chatType);
+                }
                 clearListenLog(peerUin, chatType);
                 return "监听已关闭，临时群聊记录已删除";
             }
             if (args[0].equals("status")) {
-                if (listenSessions == null) listenSessions = readStringSet(pluginPath + "/config/listen_sessions.txt");
+                if (listenSessions == null) {
+                    listenSessions = readStringSet(pluginPath + "/config/listen_sessions.txt");
+                }
                 return listenSessions.contains(peerUin + "_" + chatType) ? "已开启" : "已关闭";
             }
             return "用法: corax-listen <on|off|status>";
@@ -3474,23 +4000,55 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             String content = vfsRead(path, senderUin, peerUin, chatType);
             if (content.startsWith("[路径不存在")) { return content; }
             boolean isDir = false;
-            if (content.startsWith("bin") || content.startsWith("proc") || content.startsWith("etc")) isDir = true;
-            if (content.startsWith("dev") || content.startsWith("ctx") || content.startsWith("var")) isDir = true;
-            if (content.startsWith("src") || content.startsWith("tmp") || content.startsWith("persist")) isDir = true;
-            if (content.startsWith("usr")) isDir = true;
+            if (content.startsWith("bin") || content.startsWith("proc") || content.startsWith("etc")) {
+                isDir = true;
+            }
+            if (content.startsWith("dev") || content.startsWith("ctx") || content.startsWith("var")) {
+                isDir = true;
+            }
+            if (content.startsWith("src") || content.startsWith("tmp") || content.startsWith("persist")) {
+                isDir = true;
+            }
+            if (content.startsWith("usr")) {
+                isDir = true;
+            }
             String perms = "/proc/sys/ api_key RO; 其余 RW";
-            if (path.startsWith("/src/")) perms = "-- (拒绝访问)";
-            else if (path.startsWith("/proc/")) perms = "部分 RO, 部分 RW";
-            else if (path.startsWith("/dev/")) perms = "msg-stream RO, out WO";
-            else if (path.startsWith("/ctx/")) perms = "RO (上下文只读)";
-            else if (path.startsWith("/var/log/")) perms = "RO (日志只读)";
-            else if (path.startsWith("/var/data.db")) perms = "RW (SQLite)";
-            else if (path.startsWith("/etc/prompt/") && path.contains(getActivePersona())) perms = "RO (当前人设不可改)";
-            else if (path.startsWith("/etc/prompt/")) perms = "RW (非激活人设可改)";
-            else if (path.startsWith("/etc/skills/")) perms = "RW";
-            else if (path.startsWith("/persist/")) perms = "RW (持久化)";
-            else if (path.startsWith("/tmp/")) perms = "RW (临时, 限额 1MB/50文件)";
-            else if (path.startsWith("/etc/")) perms = "RW";
+            if (path.startsWith("/src/")) {
+                perms = "-- (拒绝访问)";
+            }
+            else if (path.startsWith("/proc/")) {
+                perms = "部分 RO, 部分 RW";
+            }
+            else if (path.startsWith("/dev/")) {
+                perms = "msg-stream RO, out WO";
+            }
+            else if (path.startsWith("/ctx/")) {
+                perms = "RO (上下文只读)";
+            }
+            else if (path.startsWith("/var/log/")) {
+                perms = "RO (日志只读)";
+            }
+            else if (path.startsWith("/var/data.db")) {
+                perms = "RW (SQLite)";
+            }
+            else if (path.startsWith("/etc/prompt/") && path.contains(getActivePersona())) {
+                perms = "RO (当前人设不可改)";
+            }
+            else if (path.startsWith("/etc/prompt/")) {
+                perms = "RW (非激活人设可改)";
+            }
+            else if (path.startsWith("/etc/skills/")) {
+                perms = "RW";
+            }
+            else if (path.startsWith("/persist/")) {
+                perms = "RW (持久化)";
+            }
+            else if (path.startsWith("/tmp/")) {
+                perms = "RW (临时, 限额 1MB/50文件)";
+            }
+            else if (path.startsWith("/etc/")) {
+                perms = "RW";
+            }
             int size = content.length();
             return "文件: " + path + "\n类型: " + (isDir ? "目录" : "文件") + "\n大小: " + size + " 字符\n权限: " + perms;
         }
@@ -3515,12 +4073,16 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 return "用法: mkdir <目录路径>";
             }
             String path = args[0];
-            if (!path.endsWith("/")) path += "/";
+            if (!path.endsWith("/")) {
+                path += "/";
+            }
             // /persist/ 下真正建目录，其余路径用虚拟文件
             if (path.startsWith("/persist/")) {
                 String real = pluginPath + "/shared-space/" + path.replace("/persist/", "");
                 File dir = new File(real);
-                if (dir.exists()) return "";
+                if (dir.exists()) {
+                    return "";
+                }
                 return dir.mkdirs() ? "" : "[目录创建失败]";
             }
             String err = vfsWrite(path, "(目录)", false, senderUin, peerUin, chatType);
@@ -3544,7 +4106,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 if (e.isEmpty()) {
                     continue;
                 }
-                if (pattern.equals("*") || e.contains(pattern.replace("*", ""))) sb.append(dir).append(dir.endsWith("/") ? "" : "/").append(e).append("\n");
+                if (pattern.equals("*") || e.contains(pattern.replace("*", ""))) {
+                    sb.append(dir).append(dir.endsWith("/") ? "" : "/").append(e).append("\n");
+                }
             }
             return sb.toString().trim();
         }
@@ -3552,7 +4116,11 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             String[] lines = stdin.split("\n");
             java.util.Arrays.sort(lines);
             StringBuilder sb = new StringBuilder();
-            for (int si = 0; si < lines.length; si++) { if (!lines[si].trim().isEmpty()) sb.append(lines[si]).append("\n"); }
+            for (int si = 0; si < lines.length; si++) {
+                if (!lines[si].trim().isEmpty()) {
+                    sb.append(lines[si]).append("\n");
+                }
+            }
             return sb.toString().trim();
         }
         if (cmd.equals("uniq")) {
@@ -3560,14 +4128,20 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             StringBuilder sb = new StringBuilder();
             String last = "";
             for (int ui = 0; ui < lines.length; ui++) {
-                if (!lines[ui].equals(last) && !lines[ui].trim().isEmpty()) { sb.append(lines[ui]).append("\n"); last = lines[ui]; }
+                if (!lines[ui].equals(last) && !lines[ui].trim().isEmpty()) {
+                    sb.append(lines[ui]).append("\n");
+                    last = lines[ui];
+                }
             }
             return sb.toString().trim();
         }
         if (cmd.equals("cut")) {
             String delim = "\t"; int field = 1;
             for (int ci = 0; ci < args.length; ci++) {
-                if (args[ci].equals("-d") && ci + 1 < args.length) { delim = args[ci + 1]; ci++; }
+                if (args[ci].equals("-d") && ci + 1 < args.length) {
+                    delim = args[ci + 1];
+                    ci++;
+                }
                 else if (args[ci].equals("-f") && ci + 1 < args.length) { try { field = Integer.parseInt(args[ci + 1]); } catch (Exception e) {} ci++; }
             }
             String[] lines = stdin.split("\n");
@@ -3577,7 +4151,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                     continue;
                 }
                 String[] parts = delim.equals("\t") ? lines[li].split("\t") : lines[li].split(delim);
-                if (field > 0 && field <= parts.length) sb.append(parts[field - 1]).append("\n");
+                if (field > 0 && field <= parts.length) {
+                    sb.append(parts[field - 1]).append("\n");
+                }
             }
             return sb.toString().trim();
         }
@@ -3616,7 +4192,9 @@ void vfsPushMsgBus(String msgJson, String peerUin, int chatType) {
         msgBus.put(key, list);
     }
     list.add(msgJson);
-    if (list.size() > 100) list.remove(0);
+    if (list.size() > 100) {
+        list.remove(0);
+    }
 }
 
 
@@ -3636,7 +4214,9 @@ Map stripQuietFlag(String cmd) {
     boolean quiet = false;
     StringBuilder clean = new StringBuilder();
     for (int i = 0; i < parts.length; i++) {
-        if (parts[i].equals("--quiet")) quiet = true;
+        if (parts[i].equals("--quiet")) {
+            quiet = true;
+        }
         else { if (clean.length() > 0) clean.append(" "); clean.append(parts[i]); }
     }
     Map result = new HashMap();
@@ -3649,7 +4229,9 @@ void sendDebug(String peerUin, int chatType, String text) { try { sendMsg(peerUi
 
 String listenLogPath(String peerUin, int chatType) {
     File dir = new File(pluginPath + "/config/listen_logs");
-    if (!dir.exists()) dir.mkdirs();
+    if (!dir.exists()) {
+        dir.mkdirs();
+    }
     String key = (peerUin + "_" + chatType).replaceAll("[^0-9A-Za-z_-]", "_");
     return dir.getAbsolutePath() + "/" + key + ".jsonl";
 }
@@ -3657,7 +4239,9 @@ String listenLogPath(String peerUin, int chatType) {
 void clearListenLog(String peerUin, int chatType) {
     try {
         File f = new File(listenLogPath(peerUin, chatType));
-        if (f.exists()) f.delete();
+        if (f.exists()) {
+            f.delete();
+        }
     } catch (Exception e) { this.log("error.txt", "clearListenLog: " + e.getMessage()); }
 }
 
@@ -3674,9 +4258,15 @@ void appendListenLog(String peerUin, int chatType, String senderUin, String send
         o.put("name", senderName != null ? senderName : "");
         o.put("text", text != null ? text : "");
         o.put("msgId", msgId != null ? msgId : "");
-        if (quotedUin != null && !quotedUin.isEmpty()) o.put("quotedUin", quotedUin);
-        if (quotedText != null && !quotedText.isEmpty()) o.put("quotedText", quotedText);
-        if (quotedMsgId != null && !quotedMsgId.isEmpty()) o.put("quotedMsgId", quotedMsgId);
+        if (quotedUin != null && !quotedUin.isEmpty()) {
+            o.put("quotedUin", quotedUin);
+        }
+        if (quotedText != null && !quotedText.isEmpty()) {
+            o.put("quotedText", quotedText);
+        }
+        if (quotedMsgId != null && !quotedMsgId.isEmpty()) {
+            o.put("quotedMsgId", quotedMsgId);
+        }
         BufferedWriter bw = new BufferedWriter(new FileWriter(listenLogPath(peerUin, chatType), true));
         bw.write(o.toString());
         bw.newLine();
@@ -3686,20 +4276,28 @@ void appendListenLog(String peerUin, int chatType, String senderUin, String send
 
 String readListenLogForPrompt(String peerUin, int chatType, int maxChars) {
     File f = new File(listenLogPath(peerUin, chatType));
-    if (!f.exists()) return "";
+    if (!f.exists()) {
+        return "";
+    }
     StringBuilder sb = new StringBuilder();
     int count = 0;
     try {
         BufferedReader br = new BufferedReader(new FileReader(f));
         String line;
         while ((line = br.readLine()) != null) {
-            if (line.trim().isEmpty()) continue;
+            if (line.trim().isEmpty()) {
+                continue;
+            }
             JSONObject o = new JSONObject(line);
             sb.append("[").append(o.optString("time", "")).append("] ");
             String name = o.optString("name", "");
             String sender = o.optString("sender", "");
-            if (!name.isEmpty()) sb.append(name).append("(").append(sender).append(")");
-            else sb.append(sender);
+            if (!name.isEmpty()) {
+                sb.append(name).append("(").append(sender).append(")");
+            }
+            else {
+                sb.append(sender);
+            }
             if (!o.optString("quotedText", "").isEmpty()) {
                 sb.append(" 引用 ").append(o.optString("quotedUin", "")).append(": ").append(o.optString("quotedText", "")).append(" | ");
             } else sb.append(": ");
@@ -3712,23 +4310,43 @@ String readListenLogForPrompt(String peerUin, int chatType, int maxChars) {
         }
         br.close();
     } catch (Exception e) { this.log("error.txt", "readListenLog: " + e.getMessage()); }
-    if (count == 0) return "";
+    if (count == 0) {
+        return "";
+    }
     return "共记录 " + count + " 条群聊消息。\n" + sb.toString();
 }
 
 void handleListenSummary(Object msg) {
     String senderUin = String.valueOf(msg.userUin);
     String role = getRole(senderUin);
-    if (!role.equals("ADMIN") && !role.equals("OWNER")) { sendPermissionDenied(msg); return; }
+    if (!role.equals("ADMIN") && !role.equals("OWNER")) {
+        sendPermissionDenied(msg);
+        return;
+    }
     String peerUin = String.valueOf(msg.peerUin);
     int chatType = msg.type;
-    if (chatType != 2) { sendStyledHeader(msg, "ERROR", "监听总结仅支持群聊"); return; }
-    if (listenSessions == null) listenSessions = readStringSet(pluginPath + "/config/listen_sessions.txt");
-    if (!listenSessions.contains(peerUin + "_" + chatType)) { sendStyledHeader(msg, "ERROR", "当前群未开启监听，无法总结"); return; }
+    if (chatType != 2) {
+        sendStyledHeader(msg, "ERROR", "监听总结仅支持群聊");
+        return;
+    }
+    if (listenSessions == null) {
+        listenSessions = readStringSet(pluginPath + "/config/listen_sessions.txt");
+    }
+    if (!listenSessions.contains(peerUin + "_" + chatType)) {
+        sendStyledHeader(msg, "ERROR", "当前群未开启监听，无法总结");
+        return;
+    }
     Map cfg = loadAiConfig();
-    if (((String) cfg.get("api_key")).isEmpty()) { sendStyledHeader(msg, "ERROR", "AI 未配置 api_key"); return; }
+    if (((String) cfg.get("api_key")).isEmpty()) {
+        sendStyledHeader(msg, "ERROR", "AI 未配置 api_key");
+        return;
+    }
     String logText = readListenLogForPrompt(peerUin, chatType, 30000);
-    if (logText.isEmpty()) { sendStyledHeader(msg, "INFO", "监听期间暂无可总结的群聊记录"); clearListenLog(peerUin, chatType); return; }
+    if (logText.isEmpty()) {
+        sendStyledHeader(msg, "INFO", "监听期间暂无可总结的群聊记录");
+        clearListenLog(peerUin, chatType);
+        return;
+    }
     JSONArray msgs = new JSONArray();
     JSONObject u = new JSONObject();
     u.put("role", "user");
@@ -3736,10 +4354,18 @@ void handleListenSummary(Object msg) {
     msgs.put(u);
     String sp = "你是群聊记录总结器。请基于用户提供的监听期群聊记录，输出简洁中文总结。必须包含：主要话题、重要结论、待办/约定、出现的链接或资源、需要后续确认的点。不要编造记录中没有的信息。";
     Map r = callAI("", sp, msgs, 4096, null);
-    if (r == null) { sendStyledHeader(msg, "ERROR", "AI 服务暂时不可用，监听记录未删除"); return; }
+    if (r == null) {
+        sendStyledHeader(msg, "ERROR", "AI 服务暂时不可用，监听记录未删除");
+        return;
+    }
     String content = (String) r.getOrDefault("content", "");
-    if (content == null || content.trim().isEmpty()) { sendStyledHeader(msg, "ERROR", "总结为空，监听记录未删除"); return; }
-    if ("1".equals(getAiConfig("ai_prefix"))) content = "[AI] " + content.trim();
+    if (content == null || content.trim().isEmpty()) {
+        sendStyledHeader(msg, "ERROR", "总结为空，监听记录未删除");
+        return;
+    }
+    if ("1".equals(getAiConfig("ai_prefix"))) {
+        content = "[AI] " + content.trim();
+    }
     sendMsg(peerUin, content, chatType);
     clearListenLog(peerUin, chatType);
 }
@@ -3772,7 +4398,9 @@ void executeMemoryCall(JSONObject tc, String fname, String senderUin, String use
                 if (c.moveToFirst()) {
                     oldW = c.getInt(0);
                     String s = c.getString(1);
-                    if (s != null && !s.isEmpty()) origSubject = s;
+                    if (s != null && !s.isEmpty()) {
+                        origSubject = s;
+                    }
                 }
             } catch (Exception e) { }
             finally { if (c != null) c.close(); }
@@ -3799,7 +4427,9 @@ void executeMemoryCall(JSONObject tc, String fname, String senderUin, String use
                 if (c.moveToFirst()) {
                     oldW = c.getInt(0);
                     String s = c.getString(1);
-                    if (s != null && !s.isEmpty()) origSubject = s;
+                    if (s != null && !s.isEmpty()) {
+                        origSubject = s;
+                    }
                 }
             } catch (Exception e) { }
             finally { if (c != null) c.close(); }
@@ -3834,7 +4464,9 @@ void handleAiMemory(Object msg, String args) {
             int c = 0;
             for (Object e : pool.entrySet()) {
                 Map.Entry en = (Map.Entry) e;
-                if (c > 0) sb2.append(", ");
+                if (c > 0) {
+                    sb2.append(", ");
+                }
                 sb2.append(en.getKey()).append("(").append(en.getValue()).append(")");
                 if (++c >= 15) {
                     break;
@@ -3855,7 +4487,9 @@ void handleAiMemory(Object msg, String args) {
                 sb2.append("#").append(m.get("id")).append(" ").append(m.get("content")).append("\n");
             }
         }
-        if (pub.isEmpty() && my.isEmpty()) sb2.append("\n暂无记忆");
+        if (pub.isEmpty() && my.isEmpty()) {
+            sb2.append("\n暂无记忆");
+        }
         sendStyledHeader(msg, "INFO", sb2.toString());
         return;
     }
@@ -3868,12 +4502,20 @@ void handleAiMemory(Object msg, String args) {
         try { id = Long.parseLong(parts[1].replace("#", "")); }
         catch (Exception e) { sendStyledHeader(msg, "ERROR", "id 必须是数字"); return; }
         Map m = getMemoryDetail(id);
-        if (m == null) { sendStyledHeader(msg, "INFO", "没有找到 #" + id); return; }
-        if (!canViewMemoryDetail(m, senderUin, userRole)) { sendPermissionDenied(msg); return; }
+        if (m == null) {
+            sendStyledHeader(msg, "INFO", "没有找到 #" + id);
+            return;
+        }
+        if (!canViewMemoryDetail(m, senderUin, userRole)) {
+            sendPermissionDenied(msg);
+            return;
+        }
         String recordUin = (String) m.get("uin");
         String recordRole = getRole(recordUin);
         String subject = (String) m.get("subjectUin");
-        if (subject == null || subject.isEmpty()) subject = recordUin;
+        if (subject == null || subject.isEmpty()) {
+            subject = recordUin;
+        }
         String subjectRole = getRole(subject);
         String assertionType = calcAssertionType(recordUin, subject);
 
@@ -3886,12 +4528,16 @@ void handleAiMemory(Object msg, String args) {
         sb.append("记得: ").append(m.get("content")).append("\n");
         sb.append("标签: ").append(m.get("tags")).append("\n");
         sb.append("可信度: ").append(m.get("credibility")).append(" 权重: ").append(m.get("weight"));
-        if (Integer.parseInt(String.valueOf(m.get("pinned"))) == 1) sb.append(" 已置顶");
+        if (Integer.parseInt(String.valueOf(m.get("pinned"))) == 1) {
+            sb.append(" 已置顶");
+        }
         sb.append("\n创建: ").append(fmtTime(Long.parseLong(String.valueOf(m.get("createdAt")))));
         sb.append("\n最近命中: ").append(fmtTime(Long.parseLong(String.valueOf(m.get("accessedAt")))));
         String st = (String) m.get("sourceText");
         if (st != null && !st.isEmpty()) {
-            if (st.length() > 600) st = st.substring(0, 600) + "...";
+            if (st.length() > 600) {
+                st = st.substring(0, 600) + "...";
+            }
             sb.append("\n来源原文: ").append(st);
         }
         sendStyledHeader(msg, "INFO", sb.toString());
@@ -3905,19 +4551,29 @@ void handleAiMemory(Object msg, String args) {
         try {
             long id = Long.parseLong(parts[1]);
             Cursor c = getDb().rawQuery("SELECT pinned FROM memories WHERE id=?", new String[]{String.valueOf(id)});
-            int cur = 0; if (c.moveToFirst()) cur = c.getInt(0); c.close();
+            int cur = 0;
+            if (c.moveToFirst()) {
+                cur = c.getInt(0);
+            }
+            c.close();
             int nv = cur == 1 ? 0 : 1;
-            ContentValues cv = new ContentValues(); cv.put("pinned", nv);
+            ContentValues cv = new ContentValues();
+            cv.put("pinned", nv);
             getDb().update("memories", cv, "id=?", new String[]{String.valueOf(id)});
             sendStyledHeader(msg, "SUCCESS", "#" + id + (nv == 1 ? " 已置顶" : " 已取消置顶"));
         } catch (Exception e) { sendStyledHeader(msg, "ERROR", "id 必须是数字"); }
         return;
     }
     if (sub.equals("search")) {
-        if (parts.length < 2) { sendStyledHeader(msg, "ERROR", "用法: /ai memory search <kw|tag:x>"); return; }
+        if (parts.length < 2) {
+            sendStyledHeader(msg, "ERROR", "用法: /ai memory search <kw|tag:x>");
+            return;
+        }
         String kw = parts[1];
         List found = kw.startsWith("tag:") ? searchMemoriesByTag(senderUin, kw.substring(4)) : searchMemories(senderUin, kw);
-        if (found.isEmpty()) sendStyledHeader(msg, "INFO", "没有匹配 \"" + kw + "\"");
+        if (found.isEmpty()) {
+            sendStyledHeader(msg, "INFO", "没有匹配 \"" + kw + "\"");
+        }
         else {
             StringBuilder sb = new StringBuilder();
             sb.append("[搜索 \"").append(kw).append("\"] ").append(found.size()).append(" 条:\n");
@@ -3980,7 +4636,10 @@ void handleAiMemory(Object msg, String args) {
         return;
     }
     if (sub.equals("reset")) {
-        if (!userRole.equals("OWNER")) { sendStyledHeader(msg, "ERROR", "权限不足"); return; }
+        if (!userRole.equals("OWNER")) {
+            sendStyledHeader(msg, "ERROR", "权限不足");
+            return;
+        }
         try { getDb().delete("memories", null, null); getDb().delete("tag_pool", null, null); getDb().delete("sqlite_sequence", "name='memories'", null); tagPoolCache = null; } catch (Exception e) { }
         sendStyledHeader(msg, "SUCCESS", "已清空全部记忆"); return;
     }
@@ -4116,7 +4775,9 @@ void handleAiMemory(Object msg, String args) {
             sb2.append("#").append(c.getLong(0)).append(" [UIN:").append(c.getString(3)).append("] [").append(c.getString(2)).append("] ").append(c.getString(1)).append("\n");
         }
         c.close();
-        if (!hasPriv) sb2.append("(无)\n");
+        if (!hasPriv) {
+            sb2.append("(无)\n");
+        }
         sendStyledHeader(msg, "INFO", sb2.toString());
         return;
     }
@@ -4125,7 +4786,10 @@ void handleAiMemory(Object msg, String args) {
 
 void handleAiSet(Object msg, String args) {
     String role = getRole(String.valueOf(msg.userUin));
-    if (!role.equals("ADMIN") && !role.equals("OWNER")) { sendStyledHeader(msg, "ERROR", "权限不足"); return; }
+    if (!role.equals("ADMIN") && !role.equals("OWNER")) {
+        sendStyledHeader(msg, "ERROR", "权限不足");
+        return;
+    }
     String[] parts = args.split("\\s+", 2);
     if (parts.length < 2) {
         sendStyledHeader(msg, "ERROR", "用法: /ai set <key> <value>");
@@ -4134,7 +4798,10 @@ void handleAiSet(Object msg, String args) {
     String key = parts[0].trim(); String value = parts[1].trim();
     String[] vk = { "api_key","model","ai_url","context_ttl","context_limit","search_provider","search_api_key","show_stats","debug","ai_prefix","shell_rounds","temperature","pat_wake","sewarden" };
     boolean valid = false; for (int i = 0; i < vk.length; i++) if (vk[i].equals(key)) { valid = true; break; }
-    if (!valid) { sendStyledHeader(msg, "ERROR", "无效: " + key); return; }
+    if (!valid) {
+        sendStyledHeader(msg, "ERROR", "无效: " + key);
+        return;
+    }
     if (key.equals("context_ttl") || key.equals("context_limit") || key.equals("show_stats") || key.equals("debug") || key.equals("pat_wake")) {
         try { Integer.parseInt(value); } catch (Exception e) { sendStyledHeader(msg, "ERROR", "必须是整数"); return; }
     }
@@ -4148,7 +4815,17 @@ void handleAiConfig(Object msg) {
     Map cfg = loadAiConfig();
     StringBuilder sb = new StringBuilder("[AI 配置]\n");
     String[] keys = { "model","api_key","ai_url","context_ttl","context_limit","search_provider","search_api_key","shell_rounds","show_stats","debug","ai_prefix","temperature","pat_wake","sewarden" };
-    for (int i = 0; i < keys.length; i++) { String k = keys[i]; String v = (String) cfg.get(k); if (v == null) v = ""; if (k.contains("api_key") && v.length() >= 8) v = maskApiKey(v); sb.append(k).append(" = ").append(v).append("\n"); }
+    for (int i = 0; i < keys.length; i++) {
+        String k = keys[i];
+        String v = (String) cfg.get(k);
+        if (v == null) {
+            v = "";
+        }
+        if (k.contains("api_key") && v.length() >= 8) {
+            v = maskApiKey(v);
+        }
+        sb.append(k).append(" = ").append(v).append("\n");
+    }
     sb.append("default_account = ").append(getDefaultAccount()).append("\n");
     String persona = loadPersona(); sb.append("人设 = ").append(getActivePersona()).append(persona.isEmpty() ? " (未)" : " (" + persona.length() + "字符)").append("\n");
     List ww = loadWakeWords(); sb.append("唤醒词 = ").append(ww.isEmpty() ? "(无)" : ""); for (int i = 0; i < ww.size(); i++) { if (i > 0) sb.append(","); sb.append(ww.get(i)); }
@@ -4158,7 +4835,10 @@ void handleAiConfig(Object msg) {
 
 void handleAiForget(Object msg, String keyword) {
     String senderUin = String.valueOf(msg.userUin);
-    if (keyword == null || keyword.trim().isEmpty()) { sendStyledHeader(msg, "ERROR", "用法: /ai forget <关键词>"); return; }
+    if (keyword == null || keyword.trim().isEmpty()) {
+        sendStyledHeader(msg, "ERROR", "用法: /ai forget <关键词>");
+        return;
+    }
     int d = deleteMemoriesByKeyword(senderUin, keyword.trim());
     sendStyledHeader(msg, "INFO", d > 0 ? "已删除 " + d + " 条" : "没有匹配的记忆");
 }
@@ -4172,13 +4852,23 @@ String maskApiKey(String key) {
 
 int getMemoryCount(String uin) {
     Cursor c = null;
-    try { c = getDb().rawQuery("SELECT COUNT(*) FROM memories WHERE uin=? AND scope='private'", new String[]{uin}); if (c.moveToFirst()) return c.getInt(0); } catch (Exception e) { }
+    try {
+        c = getDb().rawQuery("SELECT COUNT(*) FROM memories WHERE uin=? AND scope='private'", new String[]{uin});
+        if (c.moveToFirst()) {
+            return c.getInt(0);
+        }
+    } catch (Exception e) { }
     finally { if (c != null) c.close(); }
     return 0;
 }
 int getPublicMemoryCount() {
     Cursor c = null;
-    try { c = getDb().rawQuery("SELECT COUNT(*) FROM memories WHERE scope='public'", null); if (c.moveToFirst()) return c.getInt(0); } catch (Exception e) { }
+    try {
+        c = getDb().rawQuery("SELECT COUNT(*) FROM memories WHERE scope='public'", null);
+        if (c.moveToFirst()) {
+            return c.getInt(0);
+        }
+    } catch (Exception e) { }
     finally { if (c != null) c.close(); }
     return 0;
 }
@@ -4195,7 +4885,10 @@ void sendPermissionDenied(Object msg) { sendStyledHeader(msg, "ERROR", "权限�
 
 boolean requireAdminOrOwner(Object msg) {
     String role = getRole(String.valueOf(msg.userUin));
-    if (!role.equals("ADMIN") && !role.equals("OWNER")) { sendPermissionDenied(msg); return false; }
+    if (!role.equals("ADMIN") && !role.equals("OWNER")) {
+        sendPermissionDenied(msg);
+        return false;
+    }
     return true;
 }
 
@@ -4203,7 +4896,14 @@ String extractTargetUin(Object msg, String arg) {
     if (msg == null) {
         return null;
     }
-    if (msg.atList != null && msg.atList.size() > 0) { for (int i = 0; i < msg.atList.size(); i++) { String at = String.valueOf(msg.atList.get(i)); if (!at.equals(myUin)) return at; } }
+    if (msg.atList != null && msg.atList.size() > 0) {
+        for (int i = 0; i < msg.atList.size(); i++) {
+            String at = String.valueOf(msg.atList.get(i));
+            if (!at.equals(myUin)) {
+                return at;
+            }
+        }
+    }
     if (arg != null && arg.trim().matches("\\d{5,15}")) {
         return arg.trim();
     }
@@ -4214,11 +4914,17 @@ boolean isNumeric(String s) { return s != null && s.matches("[0-9]+"); }
 
 // ==================== 生命周期 ====================
 public void onDestroy() {
-    if (delayTimer != null) { delayTimer.cancel(); delayTimer.purge(); delayTimer = null; }
+    if (delayTimer != null) {
+        delayTimer.cancel();
+        delayTimer.purge();
+        delayTimer = null;
+    }
     for (Object key : aiContexts.keySet()) {
         try {
             String[] parts = ((String) key).split("_");
-            if (parts.length == 2) saveCtxToDisk(parts[0], Integer.parseInt(parts[1]));
+            if (parts.length == 2) {
+                saveCtxToDisk(parts[0], Integer.parseInt(parts[1]));
+            }
         } catch (Exception ignored) { }
     }
     aiContexts.clear();
@@ -4309,11 +5015,15 @@ public void onMsg(Object msg) {
             sent++;
         }
     }
-    if (!daemonOutQueue.isEmpty()) daemonOutQueue.clear(); // 清空剩余
+    if (!daemonOutQueue.isEmpty()) {
+        daemonOutQueue.clear(); // 清空剩余;
+    }
 
     // 消息队列：正在处理消息时缓存新消息，不丢弃
     if (aiProcessing) {
-        if (msgQueue.size() >= MSG_QUEUE_MAX) msgQueue.poll();
+        if (msgQueue.size() >= MSG_QUEUE_MAX) {
+            msgQueue.poll();
+        }
         msgQueue.offer(msg);
         return;
     }
@@ -4350,23 +5060,36 @@ public void onMsg(Object msg) {
             return;
         }
         String aiArg = trimmed.length() > 3 ? trimmed.substring(3).trim() : "";
-        if (aiArg.isEmpty()) { sendStyledHeader(msg, "ERROR", "/ai <内容> / memory / debug / reboot / set / config / forget / off / on / status"); return; }
+        if (aiArg.isEmpty()) {
+            sendStyledHeader(msg, "ERROR", "/ai <内容> / memory / debug / reboot / set / config / forget / off / on / status");
+            return;
+        }
         handleAi(msg, aiArg); return;
     }
     if (!aiProcessing && startsWithWakeWord(trimmed)) {
         handleAi(msg, trimmed); return;
     }
     if (trimmed.startsWith("/setdefaultaccount")) {
-        if (!getRole(senderUin).equals("OWNER")) { sendPermissionDenied(msg); return; }
+        if (!getRole(senderUin).equals("OWNER")) {
+            sendPermissionDenied(msg);
+            return;
+        }
         String arg = trimmed.length() > 19 ? trimmed.substring(19).trim() : "";
-        if (arg.startsWith("/")) arg = arg.substring(1).trim();
-        if (arg.isEmpty() || (!arg.equals("member") && !arg.equals("blocked"))) { sendStyledHeader(msg, "ERROR", "/setdefaultaccount member/blocked"); return; }
+        if (arg.startsWith("/")) {
+            arg = arg.substring(1).trim();
+        }
+        if (arg.isEmpty() || (!arg.equals("member") && !arg.equals("blocked"))) {
+            sendStyledHeader(msg, "ERROR", "/setdefaultaccount member/blocked");
+            return;
+        }
         setDefaultAccountConfig(arg);
         sendStyledHeader(msg, "INFO", "已设置: " + arg); return;
     }
 
     // v4.0: 监听模式 — 只记录不调用 AI
-    if (listenSessions == null) listenSessions = readStringSet(pluginPath + "/config/listen_sessions.txt");
+    if (listenSessions == null) {
+        listenSessions = readStringSet(pluginPath + "/config/listen_sessions.txt");
+    }
     if (!aiProcessing && !trimmed.startsWith("/")
         && listenSessions.contains(peerUin + "_" + chatType)) {
 
@@ -4406,7 +5129,9 @@ public void onMsg(Object msg) {
                                 java.lang.reflect.Field sf = re.getClass().getDeclaredField("senderUin");
                                 sf.setAccessible(true);
                                 Object su = sf.get(re);
-                                if (su != null && !su.toString().isEmpty()) ruin = su.toString();
+                                if (su != null && !su.toString().isEmpty()) {
+                                    ruin = su.toString();
+                                }
                             } catch (Exception ex2) { }
                             quotedUin = ruin;
                             try {
@@ -4419,7 +5144,9 @@ public void onMsg(Object msg) {
                                 java.lang.reflect.Field mf = re.getClass().getDeclaredField("sourceMsgId");
                                 mf.setAccessible(true);
                                 Object mid = mf.get(re);
-                                if (mid != null && !mid.toString().isEmpty()) quotedMsgId = mid.toString();
+                                if (mid != null && !mid.toString().isEmpty()) {
+                                    quotedMsgId = mid.toString();
+                                }
                             } catch (Exception ex3) { }
                             break;
                         }
@@ -4432,8 +5159,12 @@ public void onMsg(Object msg) {
 
         // 判断是否被唤醒：@AI、唤醒词
         boolean isWakeUp = false;
-        if (msg.atList != null && msg.atList.contains(myUin)) isWakeUp = true;
-        if (!isWakeUp && startsWithWakeWord(trimmed)) isWakeUp = true;
+        if (msg.atList != null && msg.atList.contains(myUin)) {
+            isWakeUp = true;
+        }
+        if (!isWakeUp && startsWithWakeWord(trimmed)) {
+            isWakeUp = true;
+        }
 
         if (isWakeUp) {
             // 被唤醒 → 调用 handleAi（handleAi 内部会注入 <wake />）
@@ -4449,7 +5180,9 @@ public void onMsg(Object msg) {
             String quotedName = getMemberName(chatType, peerUin, quotedUin);
             quotedName = quotedName.replaceAll("[<{＜【\\[（(].*?[>}＞】\\]）)]", "")
                                    .replaceAll("[,，:：;；]", "").trim();
-            if (quotedName.isEmpty()) quotedName = quotedUin;
+            if (quotedName.isEmpty()) {
+                quotedName = quotedUin;
+            }
 
             Map m1 = new HashMap();
             m1.put("role", "system");
@@ -4508,8 +5241,12 @@ public void onMsg(Object msg) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
         h.append("墨鸦 v5.0.0 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
-        if (role.equals("ADMIN") || role.equals("OWNER")) h.append("/ai set / config / off / on / clear\n");
-        if (role.equals("OWNER")) h.append("/setdefaultaccount\n");
+        if (role.equals("ADMIN") || role.equals("OWNER")) {
+            h.append("/ai set / config / off / on / clear\n");
+        }
+        if (role.equals("OWNER")) {
+            h.append("/setdefaultaccount\n");
+        }
         h.append("\n墨鸦-Strata | 轻量级 Agentic RAG");
         sendStyledHeader(msg, "INFO", h.toString()); return;
     }
@@ -4517,13 +5254,21 @@ public void onMsg(Object msg) {
     if (role.equals("BLOCKED")) { if (!cmd.equals("/whoami") && !cmd.equals("/help") && !cmd.equals("/ai")) { sendPermissionDenied(msg); return; } }
     if (cmd.equals("/log")) { if (!requireAdminOrOwner(msg)) { return; } String p = pluginPath + "/config/log.txt"; if (!new File(p).exists()) sendStyledHeader(msg, "INFO", "日志已创建"); else sendFile(peerUin, p, chatType); return; }
     if (cmd.equals("/admin")) {
-        if (!role.equals("OWNER")) { sendPermissionDenied(msg); return; }
+        if (!role.equals("OWNER")) {
+            sendPermissionDenied(msg);
+            return;
+        }
         if (tokens.length >= 2 && tokens[1].equals("list")) {
             Set admins = readStringSet(pluginPath + "/config/admins.txt");
-            if (admins.isEmpty()) { sendStyledHeader(msg, "INFO", "管理员列表为空"); return; }
+            if (admins.isEmpty()) {
+                sendStyledHeader(msg, "INFO", "管理员列表为空");
+                return;
+            }
             StringBuilder sb = new StringBuilder();
             sb.append("管理员列表 (").append(admins.size()).append("人):\n");
-            for (Object a : admins) { sb.append("  ").append(a).append("\n"); }
+            for (Object a : admins) {
+                sb.append("  ").append(a).append("\n");
+            }
             sendStyledHeader(msg, "INFO", sb.toString().trim());
             return;
         }
@@ -4532,8 +5277,13 @@ public void onMsg(Object msg) {
             return;
         }
         String t = extractTargetUin(msg, tokens.length >= 2 ? tokens[1] : "");
-        if (t == null && isNumeric(tokens[1])) t = tokens[1];
-        if (t == null) { sendStyledHeader(msg, "ERROR", "请 @用户 或提供 UID"); return; }
+        if (t == null && isNumeric(tokens[1])) {
+            t = tokens[1];
+        }
+        if (t == null) {
+            sendStyledHeader(msg, "ERROR", "请 @用户 或提供 UID");
+            return;
+        }
         addToList(pluginPath + "/config/admins.txt", t);
         removeFromList(pluginPath + "/config/blocked.txt", t);
         sendStyledHeader(msg, "SUCCESS", "已授予管理员: " + t);
@@ -4547,9 +5297,13 @@ public void onMsg(Object msg) {
             if (blocked.isEmpty()) { sb.append("黑名单为空"); }
             else {
                 sb.append("黑名单 (").append(blocked.size()).append("人):\n");
-                for (Object b : blocked) { sb.append("  ").append(b).append("\n"); }
+                for (Object b : blocked) {
+                    sb.append("  ").append(b).append("\n");
+                }
             }
-            if (getDefaultAccount().equals("blocked")) sb.append("\n当前默认账户: blocked，新用户自动加入黑名单");
+            if (getDefaultAccount().equals("blocked")) {
+                sb.append("\n当前默认账户: blocked，新用户自动加入黑名单");
+            }
             sendStyledHeader(msg, "INFO", sb.toString().trim());
             return;
         }
@@ -4558,11 +5312,22 @@ public void onMsg(Object msg) {
             return;
         }
         String t = extractTargetUin(msg, tokens.length >= 2 ? tokens[1] : "");
-        if (t == null && isNumeric(tokens[1])) t = tokens[1];
-        if (t == null) { sendStyledHeader(msg, "ERROR", "请 @用户 或提供 UID"); return; }
-        if (t.equals(myUin)) { sendStyledHeader(msg, "ERROR", "不能拉黑宿主"); return; }
+        if (t == null && isNumeric(tokens[1])) {
+            t = tokens[1];
+        }
+        if (t == null) {
+            sendStyledHeader(msg, "ERROR", "请 @用户 或提供 UID");
+            return;
+        }
+        if (t.equals(myUin)) {
+            sendStyledHeader(msg, "ERROR", "不能拉黑宿主");
+            return;
+        }
         String tr = getRole(t);
-        if (role.equals("ADMIN") && (tr.equals("ADMIN") || tr.equals("OWNER"))) { sendStyledHeader(msg, "ERROR", "不能拉黑 " + tr); return; }
+        if (role.equals("ADMIN") && (tr.equals("ADMIN") || tr.equals("OWNER"))) {
+            sendStyledHeader(msg, "ERROR", "不能拉黑 " + tr);
+            return;
+        }
         removeFromList(pluginPath + "/config/admins.txt", t);
         addToList(pluginPath + "/config/blocked.txt", t);
         removeFromList(pluginPath + "/config/members.txt", t);
@@ -4577,9 +5342,13 @@ public void onMsg(Object msg) {
             if (members.isEmpty()) { sb.append("成员白名单为空"); }
             else {
                 sb.append("成员白名单 (").append(members.size()).append("人):\n");
-                for (Object u : members) { sb.append("  ").append(u).append("\n"); }
+                for (Object u : members) {
+                    sb.append("  ").append(u).append("\n");
+                }
             }
-            if (getDefaultAccount().equals("member")) sb.append("\n当前默认账户: member，新成员无需加入白名单");
+            if (getDefaultAccount().equals("member")) {
+                sb.append("\n当前默认账户: member，新成员无需加入白名单");
+            }
             sendStyledHeader(msg, "INFO", sb.toString().trim());
             return;
         }
@@ -4588,11 +5357,22 @@ public void onMsg(Object msg) {
             return;
         }
         String t = extractTargetUin(msg, tokens.length >= 2 ? tokens[1] : "");
-        if (t == null && isNumeric(tokens[1])) t = tokens[1];
-        if (t == null) { sendStyledHeader(msg, "ERROR", "请 @用户 或提供 UID"); return; }
-        if (t.equals(myUin)) { sendStyledHeader(msg, "ERROR", "不能修改宿主权限"); return; }
+        if (t == null && isNumeric(tokens[1])) {
+            t = tokens[1];
+        }
+        if (t == null) {
+            sendStyledHeader(msg, "ERROR", "请 @用户 或提供 UID");
+            return;
+        }
+        if (t.equals(myUin)) {
+            sendStyledHeader(msg, "ERROR", "不能修改宿主权限");
+            return;
+        }
         String tr = getRole(t);
-        if (role.equals("ADMIN") && (tr.equals("ADMIN") || tr.equals("OWNER"))) { sendStyledHeader(msg, "ERROR", "无法修改 " + tr + " 权限"); return; }
+        if (role.equals("ADMIN") && (tr.equals("ADMIN") || tr.equals("OWNER"))) {
+            sendStyledHeader(msg, "ERROR", "无法修改 " + tr + " 权限");
+            return;
+        }
         removeFromList(pluginPath + "/config/admins.txt", t);
         removeFromList(pluginPath + "/config/blocked.txt", t);
         if (getDefaultAccount().equals("blocked")) {
