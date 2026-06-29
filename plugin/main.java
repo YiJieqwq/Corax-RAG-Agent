@@ -3575,8 +3575,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         }
         // 分号
         if (c == ';') {
-            tokens.add(";
-            ");
+            tokens.add(";");
             pos++;
             continue;
         }
