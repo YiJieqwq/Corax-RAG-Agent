@@ -5465,6 +5465,31 @@ public void onMsg(Object msg) {
         }
     }
 
+    // 兜底：检查 pendingApprovals 是否超时（防止 Timer 不触发导致永久卡住）
+    synchronized (pendingApprovals) {
+        java.util.Iterator pit = pendingApprovals.entrySet().iterator();
+        while (pit.hasNext()) {
+            Map.Entry pe = (Map.Entry) pit.next();
+            Map pop = (Map) pe.getValue();
+            long pts = Long.parseLong(String.valueOf(pop.get("ts")));
+            if (nowMs - pts > 35000) {
+                // 超时：设结果并唤醒
+                pop.put("result", "timeout");
+                Object plock = pop.get("lock");
+                if (plock != null) {
+                    synchronized (plock) {
+                        plock.notifyAll();
+                    }
+                }
+                Timer ptm = (Timer) pop.get("timer");
+                if (ptm != null) {
+                    try { ptm.cancel(); } catch (Exception ex) { }
+                }
+                pit.remove();
+            }
+        }
+    }
+
     // 排空 daemon 输出队列（主线程安全发送，去重防刷屏）
     Set sentCache = new HashSet();
     int sent = 0;
