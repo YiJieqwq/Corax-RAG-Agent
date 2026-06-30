@@ -1,5 +1,13 @@
 # Changelog
-## v5.0.0 — Corvus
+## v5.0.1 — C-VFS
+### Features
+- **快照系统**：每次写操作前自动保存旧版本到 .snapshots/，上限 10 个 (thanks @Shixiaoshi0417)
+- **审批机制**：corax-snapshot-rm 需用户审批，35 秒超时自动拒绝
+- **SQL 放宽**：改回完整读写 + 快照保护，不再只读
+
+### Bug Fixes
+- 紧急修复：tokenizer 字符串跨行导致的 BeanShell 解析错误
+- onMsg 入口增加 pendingApprovals 超时兜底
 ### Features
 - **链式延时任务**：sleep N 拆成 Timer 分段，精准延时不再阻塞主线程
 - **延时任务注册表**：/proc/ps 可见，/proc/<pid>/status 和 /proc/<pid>/cmd 可查

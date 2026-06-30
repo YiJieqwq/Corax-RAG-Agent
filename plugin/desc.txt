@@ -1,4 +1,4 @@
-🦅 墨鸦-Strata v5.0.1 (Corvus) 🦅
+🦅 墨鸦-Strata v5.0.1 (C-VFS) 🦅
 
 \"墨鸦\"——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
 
@@ -28,11 +28,9 @@ shell_rounds = 8（最大搜索轮次，搜索N轮+最终回答）
 sewarden = 1（WARDEN增强防护，不建议关闭）
 
 近期更新（v5.0.1）：
-- Corax-Shell Workspace：虚拟文件系统，单一 shell(cmd) 工具替代全部 FC
-- 管道/重定向/后台任务，daemon 支持消息监听与自主回复
-- /persist/ 持久化存储，消息队列防丢失，人设 A/B 槽位
-- 管道( | )/重定向( > )/后台( & )，daemon 支持消息监听与自主回复
-- corax-search/corax-fetch 联网搜索，corax-mem-* 记忆管理
+- 快照系统：每次写数据前自动拍快照，AI 可回滚
+- 审批机制：敏感操作需用户确认，超时自动拒绝
+- SQL 放宽为完整读写，由快照保护
 - /proc/prompt/ 人设 A/B 槽位切换
 - 协议层标签重命名：<qid>→<refmsgid>、<mop>→<memop>、<hit>→<tagresult>
 - 被引用原文 SEWarden 清洗、系统提示词 <qid> 解释、</s> 闭合
