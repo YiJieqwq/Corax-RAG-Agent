@@ -4201,24 +4201,26 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }
             return sb.toString();
         }
-        if (cmd.equals("awk")) {
-            String delim = " "; String fmt = "{print 
-ikkahub}";
-            for (int ai = 0; ai < args.length; ai++) {
-                if (args[ai].equals("-F") && ai + 1 < args.length) { delim = args[ai + 1]; ai++; }
-                else if (args[ai].startsWith("{")) fmt = args[ai];
-            }
-            String[] lines = stdin.split("\n");
-            StringBuilder sb = new StringBuilder();
-            if (fmt.equals("{print 
-ikkahub}")) { return stdin; }
-            String fnum = fmt.replaceAll("[^0-9]", "");
+                if (cmd.equals("awk")) {
+            String delim = " ";
             int field = 0;
-            try { field = Integer.parseInt(fnum); } catch (Exception e) { return stdin; }
+            for (int ai = 0; ai < args.length; ai++) {
+                if (args[ai].equals("-F") && ai + 1 < args.length) {
+                    delim = args[ai + 1];
+                    ai++;
+                }
+                else if (args[ai].startsWith("{")) {
+                    try { field = Integer.parseInt(args[ai].replaceAll("[^0-9]", "")); }
+                    catch (Exception e) {}
+                }
+            }
+            if (field == 0) { return stdin; }
+            String[] lines = stdin.split("\\n");
+            StringBuilder sb = new StringBuilder();
             for (int li = 0; li < lines.length; li++) {
-                if (lines[li].trim().isEmpty()) continue;
-                String[] parts = lines[li].split(delim.equals(" ") ? "\s+" : delim);
-                if (field > 0 && field <= parts.length) sb.append(parts[field - 1]).append("\n");
+                if (lines[li].trim().isEmpty()) { continue; }
+                String[] parts = lines[li].split(delim.equals(" ") ? "\\s+" : delim);
+                if (field > 0 && field <= parts.length) { sb.append(parts[field - 1]).append("\\n"); }
             }
             return sb.toString().trim();
         }
