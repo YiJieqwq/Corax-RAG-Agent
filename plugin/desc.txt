@@ -1,4 +1,4 @@
-🦅 墨鸦-Strata v5.0.0 (Corvus) 🦅
+🦅 墨鸦-Strata v5.0.1 (Corvus) 🦅
 
 \"墨鸦\"——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
 
@@ -27,7 +27,7 @@ ai_prefix = 1（AI 消息强制 [AI] 前缀）
 shell_rounds = 8（最大搜索轮次，搜索N轮+最终回答）
 sewarden = 1（WARDEN增强防护，不建议关闭）
 
-近期更新（v5.0.0）：
+近期更新（v5.0.1）：
 - Corax-Shell Workspace：虚拟文件系统，单一 shell(cmd) 工具替代全部 FC
 - 管道/重定向/后台任务，daemon 支持消息监听与自主回复
 - /persist/ 持久化存储，消息队列防丢失，人设 A/B 槽位
