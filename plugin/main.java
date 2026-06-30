@@ -3561,6 +3561,11 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             pos += 2;
             continue;
         }
+        // 忽略孤立的 &（如 2>&1 stderr 重定向）
+        if (c == '&') {
+            pos++;
+            continue;
+        }
         // OR
         if (c == '|' && pos + 1 < line.length() && line.charAt(pos + 1) == '|') {
             tokens.add("||");
