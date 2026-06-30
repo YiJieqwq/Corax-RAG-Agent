@@ -2768,7 +2768,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     if (path.equals("/proc/")) {
         return "sys/  self/  prompt/  ps  free  uptime";
     }
-    if (path.equals("/etc/")) {
+    if (path.equals("/etc") || path.equals("/etc/")) {
         return "admins.txt  blocked.txt  members.txt  enabled_conversations.txt  listen_sessions.txt  default_account.txt  prompt/  skills/";
     }
     return "[路径不存在: " + path + "]";
