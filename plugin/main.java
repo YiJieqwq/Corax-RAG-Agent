@@ -5516,7 +5516,9 @@ public void onMsg(Object msg) {
         while (pit.hasNext()) {
             Map.Entry pe = (Map.Entry) pit.next();
             Map pop = (Map) pe.getValue();
-            long pts = Long.parseLong(String.valueOf(pop.get("ts")));
+            Object tsObj = pop.get("ts");
+            if (tsObj == null) { pit.remove(); continue; }
+            long pts = Long.parseLong(String.valueOf(tsObj));
             if (nowMs - pts > 35000) {
                 // 超时：设结果并唤醒
                 pop.put("result", "timeout");
@@ -5564,6 +5566,17 @@ public void onMsg(Object msg) {
         daemonOutQueue.clear(); // 清空剩余;
     }
     
+    // 操作审批：优先处理，绕过 aiProcessing 拦截
+    String trimmedOp = text.trim();
+    if (trimmedOp.equals("/ai operation permit")) {
+        handleOperationApproval(msg, true);
+        return;
+    }
+    if (trimmedOp.equals("/ai operation reject")) {
+        handleOperationApproval(msg, false);
+        return;
+    }
+
     // 消息队列：正在处理消息时缓存新消息，不丢弃
     if (aiProcessing) {
         if (msgQueue.size() >= MSG_QUEUE_MAX) {
