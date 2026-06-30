@@ -3997,6 +3997,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 }
                 sb.append(args[i]);
             }
+            sb.append("\n");
             return sb.toString();
         }
         if (cmd.equals("cat")) {
@@ -4188,6 +4189,44 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             content = content.replace(oldS, newS);
             String err = vfsWrite(filePath, content, false, senderUin, peerUin, chatType);
             return err != null ? err : "已替换 1 处";
+        }
+        if (cmd.equals("tr")) {
+            if (args.length < 2 || stdin.isEmpty()) { return stdin; }
+            String from = args[0]; String to = args.length > 1 ? args[1] : "";
+            StringBuilder sb = new StringBuilder();
+            for (int ti = 0; ti < stdin.length(); ti++) {
+                char ch = stdin.charAt(ti);
+                int idx = from.indexOf(ch);
+                sb.append(idx >= 0 && idx < to.length() ? to.charAt(idx) : ch);
+            }
+            return sb.toString();
+        }
+        if (cmd.equals("awk")) {
+            String delim = " "; String fmt = "{print 
+ikkahub}";
+            for (int ai = 0; ai < args.length; ai++) {
+                if (args[ai].equals("-F") && ai + 1 < args.length) { delim = args[ai + 1]; ai++; }
+                else if (args[ai].startsWith("{")) fmt = args[ai];
+            }
+            String[] lines = stdin.split("\n");
+            StringBuilder sb = new StringBuilder();
+            if (fmt.equals("{print 
+ikkahub}")) { return stdin; }
+            String fnum = fmt.replaceAll("[^0-9]", "");
+            int field = 0;
+            try { field = Integer.parseInt(fnum); } catch (Exception e) { return stdin; }
+            for (int li = 0; li < lines.length; li++) {
+                if (lines[li].trim().isEmpty()) continue;
+                String[] parts = lines[li].split(delim.equals(" ") ? "\s+" : delim);
+                if (field > 0 && field <= parts.length) sb.append(parts[field - 1]).append("\n");
+            }
+            return sb.toString().trim();
+        }
+        if (cmd.equals("tee")) {
+            if (args.length < 1) { return stdin; }
+            String path = args[0];
+            String err = vfsWrite(path, stdin, false, senderUin, peerUin, chatType);
+            return stdin;
         }
         if (cmd.equals("corax-search")) {
             return doWebSearch(args.length > 0 ? args[0] : "");
