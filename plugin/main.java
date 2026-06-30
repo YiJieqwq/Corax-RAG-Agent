@@ -2759,13 +2759,13 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
         return vfsReadTmp(path);
     }
     // directories
-    if (path.equals("/bin/")) {
+    if (path.equals("/bin") || path.equals("/bin/")) {
         return "touch rm mkdir chmod find sort uniq cut sed corax-edit corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm stat corax-help";
     }
     if (path.equals("/")) {
         return "bin/  proc/  etc/  dev/  ctx/  var/  src/  tmp/  persist/  usr/";
     }
-    if (path.equals("/proc/")) {
+    if (path.equals("/proc") || path.equals("/proc/")) {
         return "sys/  self/  prompt/  ps  free  uptime";
     }
     if (path.equals("/etc") || path.equals("/etc/")) {
@@ -2990,7 +2990,7 @@ String vfsWriteEtc(String path, String content, boolean append) {
 
 // ======= /ctx/ =======
 String vfsReadCtx(String path) {
-    if (path.equals("/ctx/")) {
+    if (path.equals("/ctx") || path.equals("/ctx/")) {
         File dir = new File(pluginPath + "/config/ctx");
         String[] files = dir.list();
         if (files == null || files.length == 0) {
