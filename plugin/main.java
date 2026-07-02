@@ -1862,12 +1862,23 @@ dumpMsgs.put(dj);
                         sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                         ai2Msgs.put(sr);
                         if (output.startsWith("[WAITING_APPROVAL:")) {
-                            // 不调 AI，等待审批结果注入 ctx 后由 onMsg 触发续对话
+                            // 撤回本轮的 assistant 消息（AI 提前说的话）
+                            for (int ri = ctx.size() - 1; ri >= 0; ri--) {
+                                Map rm = (Map) ctx.get(ri);
+                                if ("assistant".equals(rm.get("role")) && rm.containsKey("tool_calls")) {
+                                    ctx.remove(ri);
+                                    break;
+                                }
+                            }
+                            // 清理本轮已发送的消息
+                            if (lastAssistantMsg != null && lastAssistantMsg.length() > 0) {
+                                lastAssistantMsg = null;
+                            }
+                            hasSentReply = false;
                             addToContextTC(ctx, "tool", "等待管理员审批中...", null, null, tcid);
                             waitingApprovalCtx = ctx;
                             waitingApprovalPid = peerUin;
                             waitingApprovalCt = chatType;
-                            hasSentReply = true;
                             break;
                         }
                         if (output.startsWith("[延时 ")) {
