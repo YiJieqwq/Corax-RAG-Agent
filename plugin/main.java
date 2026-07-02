@@ -2502,63 +2502,47 @@ void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx,
                 waitingApprovalCtx = null;
                 waitingApprovalPid = null;
                 waitingApprovalCt = -1;
-                // 触发 AI 续对话：构造触发消息调 handleAi
+                // 触发 AI 续对话
                 if (oldCtx != null && oldPid != null && oldCt >= 0 && !aiProcessing) {
                     saveCtxToDisk(oldPid, oldCt);
-                    // 用当前上下文触发 AI 回复
-                    final String fp = oldPid;
-                    final int fc = oldCt;
-                    new Thread(new Runnable() {
-                        public void run() {
-                            try { Thread.sleep(200); } catch (Exception e) {}
-                            new Handler(Looper.getMainLooper()).post(new Runnable() {
-                                public void run() {
-                                    if (!aiProcessing) {
-                                        aiProcessing = true;
-                                        try {
-                                            List ctx2 = getAiContext(fp, fc);
-                                            if (ctx2 != null) {
-                                                Map cfg = loadAiConfig();
-                                                String prompt = buildAI2Prompt(fp, fc);
-                                                JSONArray msgs = new JSONArray();
-                                                Map sm = new HashMap();
-                                                sm.put("role", "system"); sm.put("content", prompt); msgs.put(sm);
-                                                for (int mi = 0; mi < ctx2.size(); mi++) msgs.put(ctx2.get(mi));
-                                                JSONArray tools = new JSONArray();
-                                                JSONObject td = new JSONObject(); JSONObject f = new JSONObject();
-                                                f.put("name", "shell"); f.put("description", "execute");
-                                                td.put("type", "function"); td.put("function", f);
-                                                JSONObject params = new JSONObject(); params.put("type", "object");
-                                                f.put("parameters", params);
-                                                tools.put(td);
-                                                Map result = callAI("", prompt, msgs, 8192, tools);
-                                                if (result != null) {
-                                                    String content = (String) result.getOrDefault("content", "");
-                                                    if (content != null && !content.isEmpty()) {
-                                                        String[] segs = content.split("\\[SPLIT\\]");
-                                                        for (int si = 0; si < segs.length; si++) {
-                                                            String seg = segs[si].trim();
-                                                            if (!seg.isEmpty()) {
-                                                                if ("1".equals(getAiConfig("ai_prefix"))) seg = "[AI] " + seg;
-                                                                sendMsg(fp, seg, fc);
-                                                                try { Thread.sleep(150); } catch (Exception e) {}
-                                                            }
-                                                        }
-                                                        Map asst = new HashMap();
-                                                        asst.put("role", "assistant"); asst.put("content", content);
-                                                        asst.put("_ts", System.currentTimeMillis());
-                                                        ctx2.add(asst);
-                                                        saveCtxToDisk(fp, fc);
-                                                    }
-                                                }
-                                            }
-                                        } catch (Exception e) { this.log("error.txt", "resume: " + e.getMessage()); }
-                                        finally { aiProcessing = false; }
+                    aiProcessing = true;
+                    try {
+                        List ctx2 = getAiContext(oldPid, oldCt);
+                        if (ctx2 != null) {
+                            Map cfg = loadAiConfig();
+                            String prompt = buildAI2Prompt(oldPid, oldCt);
+                            JSONArray msgs = new JSONArray();
+                            Map sm = new HashMap();
+                            sm.put("role", "system"); sm.put("content", prompt); msgs.put(sm);
+                            for (int mi = 0; mi < ctx2.size(); mi++) { msgs.put(ctx2.get(mi)); }
+                            JSONArray tools = new JSONArray();
+                            JSONObject td = new JSONObject(); JSONObject f = new JSONObject();
+                            f.put("name", "shell"); f.put("description", "execute");
+                            td.put("type", "function"); td.put("function", f);
+                            tools.put(td);
+                            Map result = callAI("", prompt, msgs, 8192, tools);
+                            if (result != null) {
+                                String content = (String) result.getOrDefault("content", "");
+                                if (content != null && !content.isEmpty()) {
+                                    String[] segs = content.split("\\[SPLIT\\]");
+                                    for (int si = 0; si < segs.length; si++) {
+                                        String seg = segs[si].trim();
+                                        if (!seg.isEmpty()) {
+                                            if ("1".equals(getAiConfig("ai_prefix"))) { seg = "[AI] " + seg; }
+                                            sendMsg(oldPid, seg, oldCt);
+                                            try { Thread.sleep(150); } catch (Exception e) {}
+                                        }
                                     }
+                                    Map asst = new HashMap();
+                                    asst.put("role", "assistant"); asst.put("content", content);
+                                    asst.put("_ts", System.currentTimeMillis());
+                                    ctx2.add(asst);
+                                    saveCtxToDisk(oldPid, oldCt);
                                 }
-                            });
+                            }
                         }
-                    }).start();
+                    } catch (Exception e) { this.log("error.txt", "resume: " + e.getMessage()); }
+                    finally { aiProcessing = false; }
                 }
             } finally { onMainThread--; }
         }
