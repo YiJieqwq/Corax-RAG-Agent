@@ -1535,7 +1535,7 @@ void handleAi(Object msg, String prompt) {
     }
     Map cfg = loadAiConfig();
     if (((String) cfg.get("api_key")).isEmpty()) {
-        sendStyledHeader(msg, "ERROR", "AI 未启用"); aiProcessing = false; return;
+        sendStyledHeader(msg, "ERROR", "未配置 api_key，发送 /ai set api_key sk-xxx 配置"); aiProcessing = false; return;
     }
 
     if (trimmed.equals("dumpctx")) {
@@ -3016,14 +3016,21 @@ String vfsReadEtc(String path) {
 }
 String vfsWriteEtc(String path, String content, boolean append) {
     String real = vfsMapEtcPath(path);
-    // /etc/ 只允许修改已有文件，不允许新建
     if (!new File(real).exists()) {
         return "[只读: 系统路径不允许新建文件, 只能修改已有配置]";
     }
-    String fullErr = snapCheckFull(path);
-    if (fullErr != null) {
-        return fullErr;
+    // 安全文件写入需审批
+    if (path.equals("/etc/admins.txt") || path.equals("/etc/blocked.txt")
+        || path.equals("/etc/members.txt") || path.equals("/etc/enabled_conversations.txt")
+        || path.equals("/etc/listen_sessions.txt") || path.equals("/etc/default_account.txt")) {
+        String appKey = senderUin + "_" + peerUin + "_" + path + "_" + System.currentTimeMillis();
+        String desc = "写入 " + path + " (" + (content.length() > 50 ? content.substring(0, 50) + "..." : content) + ")";
+        String ar = waitForApproval(appKey, desc, peerUin, chatType, 30);
+        if ("timeout".equals(ar)) { return "[审批超时: 写入被自动拒绝]"; }
+        if ("reject".equals(ar)) { return "[审批拒绝: 写入已被管理员拒绝]"; }
     }
+    String fullErr = snapCheckFull(path);
+    if (fullErr != null) { return fullErr; }
     takeSnapshot(path);
     return writeFileString(real, content, append);
 }
