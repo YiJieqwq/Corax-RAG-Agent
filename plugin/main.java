@@ -36,6 +36,10 @@ static long wakeWordsFileMtime = 0;
 
 static Timer delayTimer = null;
 static boolean aiProcessing = false;
+static long lastSendMs = 0;
+static int rapidSendCount = 0;
+static boolean breakerTripped = false;
+static long breakerCooldown = 0;
 static Queue msgQueue = new LinkedList();
 static final int MSG_QUEUE_MAX = 20;
 static Set listenSessions = null;
@@ -5473,6 +5477,11 @@ public void onPaiYiPai(String peerUin, int chatType, String operatorUin) {
 public void onMsg(Object msg) {
     onMainThread++;
     try {
+    if (breakerTripped) {
+        if (System.currentTimeMillis() - breakerCooldown < 60000) { return; }
+        breakerTripped = false;
+        rapidSendCount = 0;
+    }
     if (msg == null) {
         return;
     }
@@ -5480,6 +5489,23 @@ public void onMsg(Object msg) {
     // 检查并执行到期延时任务
     // 轮询兜底：检查到期延时任务（Timer已触发的跳过）
     long nowMs = System.currentTimeMillis();
+    // 熔断：检测刷屏
+    if (nowMs - lastSendMs < 100 && lastSendMs > 0) {
+        rapidSendCount++;
+        if (rapidSendCount > 20) {
+            breakerTripped = true;
+            breakerCooldown = nowMs;
+            aiProcessing = false;
+            msgQueue.clear();
+            daemonOutQueue.clear();
+            sendMsg(String.valueOf(msg.peerUin), "[熔断] 检测到消息循环刷屏，已自动停止。60秒后恢复。", msg.type);
+            return;
+        }
+    } else {
+        rapidSendCount = 0;
+    }
+    lastSendMs = nowMs;
+
     synchronized (delayedTasks) {
         for (int di = 0; di < delayedTasks.size(); di++) {
             Map dtask = (Map) delayedTasks.get(di);
