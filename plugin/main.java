@@ -5497,22 +5497,21 @@ public void onMsg(Object msg) {
     // 检查并执行到期延时任务
     // 轮询兜底：检查到期延时任务（Timer已触发的跳过）
     long nowMs = System.currentTimeMillis();
-    // 熔断：检测刷屏
-    if (nowMs - lastSendMs < 100 && lastSendMs > 0) {
-        rapidSendCount++;
-        if (rapidSendCount > 3) {
-            breakerTripped = true;
-            breakerCooldown = nowMs;
-            aiProcessing = false;
-            msgQueue.clear();
-            daemonOutQueue.clear();
-            if (enabledForSend(String.valueOf(msg.peerUin), msg.type)) { sendMsg(String.valueOf(msg.peerUin), "[熔断] 检测到消息循环刷屏，已自动停止。60秒后恢复。", msg.type); }
-            return;
-        }
-    } else {
+    // 熔断：滑动窗口检测刷屏
+    if (nowMs - lastSendMs > 500) {
         rapidSendCount = 0;
     }
+    rapidSendCount++;
     lastSendMs = nowMs;
+    if (rapidSendCount > 5) {
+        breakerTripped = true;
+        breakerCooldown = nowMs;
+        aiProcessing = false;
+        msgQueue.clear();
+        daemonOutQueue.clear();
+        if (enabledForSend(String.valueOf(msg.peerUin), msg.type)) { sendMsg(String.valueOf(msg.peerUin), "[熔断] 检测到消息循环刷屏，已自动停止。60秒后恢复。", msg.type); }
+        return;
+    }
 
     synchronized (delayedTasks) {
         for (int di = 0; di < delayedTasks.size(); di++) {
