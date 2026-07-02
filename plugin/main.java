@@ -1936,7 +1936,7 @@ dumpMsgs.put(dj);
                                 try { Thread.sleep(150); } catch (Exception ignored) { }
                             }
                         }
-                        addToContextTC(ctx, "assistant", r2c, null, sr1tc, null);
+                        addToContextTC(ctx, "assistant", r2c, null, null, null);
                     }
                 }
                 break;
