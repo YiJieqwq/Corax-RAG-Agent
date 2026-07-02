@@ -2392,42 +2392,73 @@ void handleOperationApproval(Object msg, boolean permit) {
     Map aop = (Map) pendingApprovals.get(akey);
     if (aop == null) {
         // 兜底：遍历 pendingApprovals 找匹配项
-        for (Object v : pendingApprovals.values()) {
-            Map candidate = (Map) v;
+        Object foundKey = null;
+        for (Object k : pendingApprovals.keySet()) {
+            Map candidate = (Map) pendingApprovals.get(k);
             String candUin = (String) candidate.get("uin");
             Integer candType = (Integer) candidate.get("type");
             if (apu.equals(candUin) && candType != null && candType.intValue() == act) {
                 aop = candidate;
+                foundKey = k;
                 break;
             }
+        }
+        if (foundKey != null) {
+            akey = (String) foundKey;
         }
     }
     if (aop == null) {
         sendStyledHeader(msg, "INFO", "没有待审批的操作");
         return;
     }
-    // 取消超时定时器
-    Timer atm = (Timer) aop.get("timer");
-    if (atm != null) {
-        try { atm.cancel(); } catch (Exception e) { }
-        aop.put("timer", null);
-    }
-    // 设结果并唤醒阻塞的 corax-snapshot-rm
-    aop.put("result", permit ? "permit" : "reject");
-    Object lock = aop.get("lock");
-    if (lock != null) {
-        synchronized (lock) {
-            lock.notifyAll();
+    String rmPath = (String) aop.get("path");
+    int rmIdx = ((Integer) aop.get("rmIdx")).intValue();
+    String rmDesc = (String) aop.get("desc");
+    handleAsyncApproval(apu, act, rmPath, rmIdx, rmDesc, akey, permit ? "permit" : "reject");
+}
+
+void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx, String rmDesc, String appKey, String action) {
+    // Timer 回调或 onMsg 触发：执行审批动作
+    new Handler(Looper.getMainLooper()).post(new Runnable() {
+        public void run() {
+            onMainThread++;
+            try {
+                Map op = (Map) pendingApprovals.remove(appKey);
+                if ("permit".equals(action) || "reject".equals(action)) {
+                    if (op != null) {
+                        Timer tm = (Timer) op.get("timer");
+                        if (tm != null) { try { tm.cancel(); } catch (Exception e) {} }
+                    }
+                }
+                if ("permit".equals(action)) {
+                    File delDir = new File(snapDir(rmPath));
+                    String[] delFiles = delDir != null ? delDir.list() : null;
+                    String delTarget = null;
+                    if (delFiles != null) {
+                        for (int di = 0; di < delFiles.length; di++) {
+                            if (delFiles[di].startsWith(rmIdx + "_")) {
+                                delTarget = delFiles[di];
+                                break;
+                            }
+                        }
+                    }
+                    if (delTarget != null) {
+                        new File(delDir, delTarget).delete();
+                        injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 已被批准并执行");
+                        sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 已被批准并删除", chatType);
+                    } else {
+                        injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 批准但快照已不存在");
+                    }
+                } else if ("reject".equals(action)) {
+                    injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 已被拒绝");
+                    sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 已被拒绝", chatType);
+                } else {
+                    injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 审批超时，已自动拒绝");
+                    sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 审批超时已自动拒绝", chatType);
+                }
+            } finally { onMainThread--; }
         }
-    }
-    // 兜底：如果 lock.wait 不在等（异常情况），直接注入 ctx
-    String adesc = (String) aop.get("desc");
-    if (permit) {
-        injectApprovalResult(apu, act, "删除快照 " + adesc + " 已被批准并执行");
-    } else {
-        injectApprovalResult(apu, act, "删除快照 " + adesc + " 已被拒绝");
-    }
-    sendStyledHeader(msg, "INFO", permit ? "已批准" : "已删除");
+    });
 }
 
 // ==================== 联网搜索 ====================
