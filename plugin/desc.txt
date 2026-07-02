@@ -1,5 +1,7 @@
 🦅 墨鸦-Strata v5.1.0 (C-VFS) 🦅
 
+RAG增强检索 + Corax-Shell 虚拟机工作区，为您的 QFun 环境提供生产级 AI 助手。
+
 墨鸦——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
 
 项目链接: https://github.com/YiJieqwq/Corax-RAG-Agent
@@ -9,9 +11,10 @@
 不建议保留任何 v4.x 旧版本文件（ctx、data.db、config 等），请全新安装。
 
 初次使用：
-/ai set api_key <你的 sk-xxx key>
-/ai set search_api_key <你的搜索 key>
-/ai on 启用当前对话框 AI 功能
+/ai on — 必须先启用当前会话 AI
+/ai set api_key <你的 sk-xxx> — 配置 API key
+/ai set search_api_key <你的 key> — 配置搜索 key（可选）
+/ai clear — 清空上下文重新开始
 默认激活"小猫"人设（唤醒词：小猫,猫猫,小喵），/ai reboot 陈千语 切换。
 
 默认值（可用 /ai set 更改）：

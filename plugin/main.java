@@ -2072,7 +2072,7 @@ Map loadAiConfig() {
     cfg.put("api_key", "");
     cfg.put("model", "deepseek-v4-flash");
     cfg.put("context_ttl", "0");
-    cfg.put("context_limit", "60");
+    cfg.put("context_limit", "200");
     cfg.put("ai_url", "https://api.deepseek.com");
     cfg.put("search_provider", "tavily");
     cfg.put("search_api_key", "");
