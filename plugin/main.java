@@ -5628,7 +5628,11 @@ public void onMsg(Object msg) {
     // SEWarden: 清洗用户输入中的系统标签
     trimmed = sewardenClean(trimmed);
 
-    if (trimmed.startsWith("/ai operation")) { return; }
+    if (trimmed.startsWith("/ai operation")) {
+        if (trimmed.equals("/ai operation permit")) { handleOperationApproval(msg, true); }
+        else if (trimmed.equals("/ai operation reject")) { handleOperationApproval(msg, false); }
+        return;
+    }
     if (trimmed.startsWith("/ai")) {
         if (aiProcessing) {
             return;
