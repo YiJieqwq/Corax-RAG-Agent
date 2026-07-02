@@ -5567,7 +5567,7 @@ public void onMsg(Object msg) {
     }
     
     // 操作审批：优先处理，绕过 aiProcessing 拦截
-    String trimmedOp = text.trim();
+    String trimmedOp = msg.msg.trim();
     if (trimmedOp.equals("/ai operation permit")) {
         handleOperationApproval(msg, true);
         return;
