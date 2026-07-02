@@ -1226,10 +1226,12 @@ void trimCtx(List ctx) {
             break;
         }
     }
-    // 清除尾部的孤立 assistant+tool_calls（后置 tool 已被截断）
-    while (!ctx.isEmpty()) {
+    // 清除尾部的孤立 assistant+tool_calls（后置 tool 已被截断，但有 1 条缓冲）
+    while (ctx.size() > 1) {
         Map last = (Map) ctx.get(ctx.size() - 1);
-        if ("assistant".equals(last.get("role")) && last.get("tool_calls") != null) {
+        Map prev = (Map) ctx.get(ctx.size() - 2);
+        if ("assistant".equals(last.get("role")) && last.get("tool_calls") != null
+            && !"tool".equals(prev.get("role"))) {
             ctx.remove(ctx.size() - 1);
         } else {
             break;
