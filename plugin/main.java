@@ -4599,10 +4599,9 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             return err != null ? err : "";
         }
         if (cmd.equals("cp") || cmd.equals("mv")) {
-            if (args.length < 2) { return "用法: " + cmd + " <源> <目标>"; }
+            if (args.length < 2) { return cmd + ": missing args"; }
             String src = vfsRead(args[0], senderUin, peerUin, chatType);
-            if (src.startsWith("[路径不存在")) { return src; }
-            if (src.startsWith("[只读")) { return src; }
+            if (src.startsWith("[")) { return src; }
             String werr = vfsWrite(args[1], src, false, senderUin, peerUin, chatType);
             if (werr != null) { return werr; }
             return "";
