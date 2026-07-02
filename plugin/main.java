@@ -2028,6 +2028,9 @@ dumpMsgs.put(dj);
         }
     } catch (Exception e) {
         this.log("error.txt", "handleAi: " + e.getMessage());
+        StringWriter sw = new StringWriter();
+        e.printStackTrace(new PrintWriter(sw));
+        this.log("error.txt", "handleAi trace: " + sw.toString());
     } finally {
         try { saveCtxToDisk(peerUin, chatType); } catch (Exception e) {}
         aiProcessing = false;
