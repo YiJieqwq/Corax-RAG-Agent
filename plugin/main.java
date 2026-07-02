@@ -5492,7 +5492,7 @@ public void onMsg(Object msg) {
     // 熔断：检测刷屏
     if (nowMs - lastSendMs < 100 && lastSendMs > 0) {
         rapidSendCount++;
-        if (rapidSendCount > 20) {
+        if (rapidSendCount > 3) {
             breakerTripped = true;
             breakerCooldown = nowMs;
             aiProcessing = false;
