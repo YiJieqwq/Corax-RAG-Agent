@@ -1302,7 +1302,7 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         conn.setRequestProperty("Connection", "keep-alive");
         conn.setDoOutput(true);
         conn.setConnectTimeout(15000);
-        conn.setReadTimeout(120000);
+        conn.setReadTimeout(60000);
         JSONObject body = new JSONObject();
         body.put("model", model);
         double temp = 0.7;
