@@ -4269,7 +4269,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                     delim = args[ai + 1];
                     ai++;
                 }
-                else if (args[ai].length() > 0 && args[ai].charAt(0) == '{') {
+                else if (args[ai].length() > 0 && args[ai].charAt(0) == 123) {
                     try {
                         field = Integer.parseInt(args[ai].replaceAll("[^0-9]", ""));
                     } catch (Exception e) {}
