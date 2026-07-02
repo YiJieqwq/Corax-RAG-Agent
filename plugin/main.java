@@ -4440,7 +4440,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             }, 30000);
             rmOp.put("timer", rmTm);
             pendingApprovals.put(appKey, rmOp);
-            sendMsg(peerUin, "[Corax-Shell] 请求删除快照 " + rmDesc + "，是否批准？发送 /ai operation permit 或 /ai operation reject", chatType);
+            sendMsg(peerUin, "[Corax-Shell] 请求删除快照\n" + rmDesc + "\n是否批准？\n发送 /ai operation permit 或 /ai operation reject", chatType);
             // 阻塞等待审批结果（审批通过 onMsg 在其他线程唤醒）
             synchronized (lock) {
                 try {
@@ -5611,16 +5611,6 @@ public void onMsg(Object msg) {
 
     // SEWarden: 清洗用户输入中的系统标签
     trimmed = sewardenClean(trimmed);
-
-    // 操作审批：允许在 AI 处理中响应，越过 aiProcessing 拦截
-    if (trimmed.equals("/ai operation permit")) {
-        handleOperationApproval(msg, true);
-        return;
-    }
-    if (trimmed.equals("/ai operation reject")) {
-        handleOperationApproval(msg, false);
-        return;
-    }
 
     if (trimmed.startsWith("/ai")) {
         if (aiProcessing) {
