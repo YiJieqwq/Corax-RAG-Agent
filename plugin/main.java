@@ -4461,10 +4461,17 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             rmOp.put("timer", rmTm);
             pendingApprovals.put(appKey, rmOp);
             sendMsg(peerUin, "[Corax-Shell] 请求删除快照\n" + rmDesc + "\n是否批准？\n发送 /ai operation permit 或 /ai operation reject", chatType);
-            // 阻塞等待审批结果（审批通过 onMsg 在其他线程唤醒）
+            // 阻塞等待审批结果（处理虚假唤醒）
+            long deadline = System.currentTimeMillis() + 30000;
             synchronized (lock) {
                 try {
-                    lock.wait(30000);
+                    while (true) {
+                        Map checkOp = (Map) pendingApprovals.get(appKey);
+                        if (checkOp == null || checkOp.get("result") != null) { break; }
+                        long timeout = deadline - System.currentTimeMillis();
+                        if (timeout <= 0) { break; }
+                        lock.wait(timeout);
+                    }
                 } catch (InterruptedException e) { }
             }
             // 取出结果并执行
