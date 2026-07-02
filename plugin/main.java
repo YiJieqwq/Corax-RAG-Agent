@@ -37,6 +37,7 @@ static long wakeWordsFileMtime = 0;
 static Timer delayTimer = null;
 static boolean aiProcessing = false;
 static Queue msgQueue = new LinkedList();
+static Map waitingApprovalMap = new Hashtable();
 static final int MSG_QUEUE_MAX = 20;
 static Set listenSessions = null;
 static boolean aiReady = false;
@@ -1849,7 +1850,11 @@ dumpMsgs.put(dj);
                         sr.put("tool_call_id", tcid);
                         sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                         ai2Msgs.put(sr);
-                        if (output.startsWith("[延时 ")) {
+                        if (output.startsWith("[WAITING_APPROVAL:")) {
+                            addToContext(ctx, "assistant", "好的，审批请求已发送。等待管理员确认。", null);
+                            hasSentReply = true;
+                            break;
+                        } else if (output.startsWith("[延时 ")) {
                             addToContext(ctx, "assistant", "好的，延时任务已创建", null);
                             hasSentReply = true;
                         } else {
@@ -2418,6 +2423,7 @@ void handleOperationApproval(Object msg, boolean permit) {
 }
 
 void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx, String rmDesc, String appKey, String action) {
+    waitingApprovalMap.remove(appKey);
     // Timer 回调或 onMsg 触发：执行审批动作
     new Handler(Looper.getMainLooper()).post(new Runnable() {
         public void run() {
@@ -4424,7 +4430,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             String err = restoreSnapshot(args[0], idx);
             return err != null ? err : "已恢复到快照 #" + idx;
         }
-        if (cmd.equals("corax-snapshot-rm")) {
+                if (cmd.equals("corax-snapshot-rm")) {
             if (args.length < 2) {
                 return "用法: corax-snapshot-rm <路径> <编号>";
             }
@@ -4456,95 +4462,30 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             String rmDesc = rmPath + " #" + rmIdx + " (" + rmDate + " " + rmTime + " " + rmSize + ")";
             String appKey = peerUin + "_" + chatType;
             final int appId = nextApprovalId++;
-            // 取消旧审批的定时器
-            Map oldOp = (Map) pendingApprovals.get(appKey);
-            if (oldOp != null) {
-                Timer oldTm = (Timer) oldOp.get("timer");
-                if (oldTm != null) {
-                    try { oldTm.cancel(); } catch (Exception ex) { }
-                }
-            }
-            final Map rmOp = new HashMap();
-            rmOp.put("type", "snapshot-delete");
-            rmOp.put("vpath", rmPath);
-            rmOp.put("idx", String.valueOf(rmIdx));
+            Map rmOp = new HashMap();
+            rmOp.put("ts", System.currentTimeMillis());
             rmOp.put("desc", rmDesc);
-            rmOp.put("appId", appId);
-            rmOp.put("result", null);
-            final Object lock = new Object();
-            rmOp.put("lock", lock);
+            rmOp.put("appId", Integer.valueOf(appId));
             rmOp.put("uin", peerUin);
             rmOp.put("type", Integer.valueOf(chatType));
-            // 30s 超时定时器（Timer 线程，不走 Handler.post）
-            Timer rmTm = new Timer(true);
-            rmTm.schedule(new TimerTask() {
+            rmOp.put("path", rmPath);
+            rmOp.put("rmIdx", Integer.valueOf(rmIdx));
+            pendingApprovals.put(appKey, rmOp);
+            sendMsg(peerUin, "[Corax-Shell] 请求删除快照\n" + rmDesc + "\n是否批准？30s后自动拒绝\n发送 /ai operation permit 或 /ai operation reject", chatType);
+            // 30s 超时异步处理
+            final String tkPeerUin = peerUin;
+            final int tkChatType = chatType;
+            final String tkPath = rmPath;
+            final int tkIdx = rmIdx;
+            final String tkDesc = rmDesc;
+            final String tkKey = appKey;
+            new Timer(true).schedule(new TimerTask() {
                 public void run() {
-                    synchronized (lock) {
-                        Map op2 = (Map) pendingApprovals.get(appKey);
-                        if (op2 != null && Integer.parseInt(String.valueOf(op2.get("appId"))) == appId) {
-                            op2.put("result", "timeout");
-                            op2.put("timer", null);
-                        }
-                        lock.notifyAll();
-                    }
+                    handleAsyncApproval(tkPeerUin, tkChatType, tkPath, tkIdx, tkDesc, tkKey, "timeout");
                 }
             }, 30000);
-            rmOp.put("timer", rmTm);
-            pendingApprovals.put(appKey, rmOp);
-            sendMsg(peerUin, "[Corax-Shell] 请求删除快照\n" + rmDesc + "\n是否批准？\n发送 /ai operation permit 或 /ai operation reject", chatType);
-            // 阻塞等待审批结果（处理虚假唤醒）
-            long deadline = System.currentTimeMillis() + 30000;
-            synchronized (lock) {
-                try {
-                    while (true) {
-                        Map checkOp = (Map) pendingApprovals.get(appKey);
-                        if (checkOp == null || checkOp.get("result") != null) { break; }
-                        long timeout = deadline - System.currentTimeMillis();
-                        if (timeout <= 0) { break; }
-                        lock.wait(timeout);
-                    }
-                } catch (InterruptedException e) { }
-            }
-            // 取出结果并执行
-            Map finalOp = (Map) pendingApprovals.remove(appKey);
-            String finalResult = "timeout";
-            if (finalOp != null) {
-                String fr = (String) finalOp.get("result");
-                if (fr != null) {
-                    finalResult = fr;
-                }
-                Timer ft = (Timer) finalOp.get("timer");
-                if (ft != null) {
-                    try { ft.cancel(); } catch (Exception ex) { }
-                }
-            }
-            if ("permit".equals(finalResult)) {
-                File delDir = new File(snapDir(rmPath));
-                String[] delFiles = delDir.list();
-                String delTarget = null;
-                if (delFiles != null) {
-                    for (int di = 0; di < delFiles.length; di++) {
-                        if (delFiles[di].startsWith(rmIdx + "_")) {
-                            delTarget = delFiles[di];
-                            break;
-                        }
-                    }
-                }
-                if (delTarget != null) {
-                    new File(delDir, delTarget).delete();
-                    injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 已被批准并执行");
-                    return "快照 " + rmDesc + " 已被管理员批准并删除";
-                } else {
-                    injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 批准但快照已不存在");
-                    return "快照批准但快照已不存在: " + rmDesc;
-                }
-            } else if ("reject".equals(finalResult)) {
-                injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 已被拒绝");
-                return "快照 " + rmDesc + " 已被管理员拒绝";
-            } else {
-                injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 请求超时，已自动拒绝");
-                return "快照 " + rmDesc + " 审批超时，已自动拒绝";
-            }
+            waitingApprovalMap.put(appKey, "true");
+            return "[WAITING_APPROVAL:" + rmDesc + "]";
         }
         if (cmd.equals("stat")) {
             if (args.length < 1) {
@@ -5624,7 +5565,13 @@ public void onMsg(Object msg) {
         daemonOutQueue.clear(); // 清空剩余;
     }
     
-    // 操作审批：优先处理，绕过 aiProcessing 拦截
+    // 操作审批 + 等待审批状态
+    if (waitingApprovalMap.containsKey(peerUin + "_" + msg.type)) {
+        String waitOp = msg.msg.trim();
+        if (waitOp.equals("/ai operation permit")) { handleOperationApproval(msg, true); return; }
+        if (waitOp.equals("/ai operation reject")) { handleOperationApproval(msg, false); return; }
+        return;
+    }
     String trimmedOp = msg.msg.trim();
     if (trimmedOp.equals("/ai operation permit")) {
         handleOperationApproval(msg, true);
