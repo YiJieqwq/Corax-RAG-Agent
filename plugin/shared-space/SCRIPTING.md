@@ -5,20 +5,26 @@
 所有操作通过 `shell(cmd)` 工具执行。支持管道、重定向、后台执行。
 
 ```bash
-# 搜索并输出
-corax-search "天气" | head -3 > /dev/out
+# 搜索（原始结果只返回给 AI，不会发给用户）
+corax-search "天气"
 
 # 创建记忆
 corax-mem-create person,note 张三的生日是5月20日
 
 # 查看配置
 cat /proc/sys/temperature
+
+# 检查快照
+corax-snapshot-list /etc/admins.txt
+
+# 命令列表示例
+cat /persist/mytask &
 ```
 
 ## 可用命令
 
 ### 内置命令
-`ls` `cat` `echo` `grep` `wc` `head` `tail` `date` `sleep`
+`ls` `cat` `echo` `grep` `wc` `head` `tail` `date` `sleep` `touch` `rm` `mkdir` `chmod` `find` `sort` `uniq` `cut` `sed` `tr` `awk` `tee` `stat` `ps`
 
 ### Corax 命令
 | 命令 | 说明 |
@@ -29,9 +35,25 @@ cat /proc/sys/temperature
 | `corax-mem-rm <id>` | 删除记忆 |
 | `corax-mem-tag [--public] <tag>` | 按标签搜索记忆 |
 | `corax-mem-search [--public] <keyword>` | 按内容搜索记忆 |
-| `corax-skill <name>` | 加载技能 |
 | `corax-listen <on|off|status>` | 监听模式 |
+| `corax-sendfile <path>` | 发送文件到聊天 |
+| `corax-snapshot-list <path>` | 查看快照列表 |
+| `corax-snapshot-restore <path> <id>` | 回滚快照 |
+| `corax-snapshot-rm <path> <id>` | 删除快照（需审批） |
+| `corax-reboot <persona>` | 切换人设 |
+| `corax-edit <file> <old> <new>` | 文件内容替换 |
 | `corax-help` | 查看帮助 |
+
+## 安全审批
+
+以下操作需要管理员发送 `/ai operation permit` 批准（30s 超时自动拒绝）：
+
+| 操作 | 触发条件 |
+|------|----------|
+| 写入安全文件 | `/etc/admins.txt` `blocked.txt` `members.txt` `enabled_conversations.txt` `listen_sessions.txt` `default_account.txt` |
+| 删除快照 | `corax-snapshot-rm` |
+
+审批期间 AI 工具调用会等待结果，批准后自动继续。
 
 ## 文件系统
 
@@ -41,43 +63,32 @@ cat /proc/sys/temperature
 | `/proc/self/` | 当前会话状态 | ro |
 | `/proc/prompt/active` | 当前人设 | ro, 写=切换 |
 | `/etc/prompt/*.prompt.txt` | 人设文件 | 激活 ro, 其他 rw |
-| `/etc/skills/*.skill.txt` | 技能文件 | rw |
-| `/etc/admins.txt` 等 | 名单列表 | rw |
+| `/etc/admins.txt` 等 | 安全名单 | rw（需审批） |
 | `/dev/out` | 发送消息 | w |
 | `/dev/msg-stream` | 消息总线 | ro (FIFO) |
 | `/ctx/` | 上下文历史 | ro |
-| `/var/data.db` | 记忆数据库 | SQL |
+| `/var/data.db` | 记忆数据库 | RW |
+| `/persist/` | 持久化存储 | RW |
+| `/tmp/` | 临时工作区 | RW |
 
 ## 后台守护 (daemon)
 
 ```bash
-# 启动后台任务
-echo 'while true; do sleep 3600; corax-search "热搜" | head > /dev/out; done' > /persist/hourly-news
-/persist/hourly-news &
+# 写入持久化脚本
+echo 'sleep 3600 && corax-search "热搜" > /persist/news.txt' > /persist/hourly
+cat /persist/hourly &
 
 # 查看进程
 cat /proc/ps
 
-# 停止
+# 终止（PID 从 ps 获取）
 echo 1 > /proc/<pid>/kill
-```
-
-## 消息监听示例
-
-```bash
-# 每收到消息时检查关键词
-cat > /persist/echo-cat << 'EOF'
-while true; do
-  msg=$(cat /dev/msg-stream)
-  echo "$msg" | grep -q "喵" && echo "喵~" > /dev/out
-done
-EOF
-/persist/echo-cat &
 ```
 
 ## 限制
 
 - /tmp/ 最多 50 个文件，单文件 100KB
-- /var/data.db 不允许 DROP/ALTER
+- daemon 上限 10 个
+- 快照上限 10 个/文件
 - api_key 只读不可改
 - 当前激活的人设文件不可覆写

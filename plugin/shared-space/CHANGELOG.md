@@ -1,5 +1,28 @@
 # Changelog
-## v5.0.0 — Corvus
+## v5.1.0 — C-VFS
+### Features
+- **快照审批系统**：corax-snapshot-rm 发送审批请求，轮询等待用户 /ai operation permit/reject，对 AI 透明（像普通工具调用）
+- **熔断器**：滑动窗口检测消息刷屏，自动停止 60s
+- **enabledForSend**：非 handleAi 路径发送前检查会话是否启用 AI
+
+### Bug Fixes
+- tool_calls 正确存入上下文（trimCtx 尾部清理逻辑移除）
+- echo 自动加换行
+- tokenizer：跳过 >&N stderr 重定向、跳过孤儿 &
+- ls /etc /bin /proc /ctx 不带斜杠可访问
+- handleAi try-catch-finally 兜底：崩溃不丢上下文
+- 审批路由优先级修正（不再触发普通 /ai 对话）
+- BeanShell 兼容：'{' 字符常量 → ASCII 123，awk 命令展开
+
+## v5.0.1 — C-VFS
+### Features
+- **快照系统**：每次写操作前自动保存旧版本到 .snapshots/，上限 10 个 (thanks @Shixiaoshi0417)
+- **审批机制**：corax-snapshot-rm 需用户审批，35 秒超时自动拒绝
+- **SQL 放宽**：改回完整读写 + 快照保护，不再只读
+
+### Bug Fixes
+- 紧急修复：tokenizer 字符串跨行导致的 BeanShell 解析错误
+- onMsg 入口增加 pendingApprovals 超时兜底
 ### Features
 - **链式延时任务**：sleep N 拆成 Timer 分段，精准延时不再阻塞主线程
 - **延时任务注册表**：/proc/ps 可见，/proc/<pid>/status 和 /proc/<pid>/cmd 可查
