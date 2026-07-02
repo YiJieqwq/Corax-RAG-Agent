@@ -1142,7 +1142,7 @@ List getAiContext(String peerUin, int chatType) {
                         ctx = new ArrayList();
                     }
                 }
-            } catch (Exception e) { ctx = new ArrayList(); }
+            } catch (Exception e) { this.log("error.txt", "loadCtx " + key + ": " + e.getMessage()); ctx = new ArrayList(); }
         }
     }
 
