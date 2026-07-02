@@ -37,7 +37,6 @@ static long wakeWordsFileMtime = 0;
 static Timer delayTimer = null;
 static boolean aiProcessing = false;
 static Queue msgQueue = new LinkedList();
-static Map waitingApprovalMap = new Hashtable();
 static final int MSG_QUEUE_MAX = 20;
 static Set listenSessions = null;
 static boolean aiReady = false;
@@ -1850,11 +1849,7 @@ dumpMsgs.put(dj);
                         sr.put("tool_call_id", tcid);
                         sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                         ai2Msgs.put(sr);
-                        if (output.startsWith("[WAITING_APPROVAL:")) {
-                            addToContext(ctx, "assistant", "好的，审批请求已发送。等待管理员确认。", null);
-                            hasSentReply = true;
-                            break;
-                        } else if (output.startsWith("[延时 ")) {
+                        if (output.startsWith("[延时 ")) {
                             addToContext(ctx, "assistant", "好的，延时任务已创建", null);
                             hasSentReply = true;
                         } else {
@@ -2423,8 +2418,6 @@ void handleOperationApproval(Object msg, boolean permit) {
 }
 
 void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx, String rmDesc, String appKey, String action) {
-    waitingApprovalMap.remove(appKey);
-    waitingApprovalMap.remove(peerUin + "_" + chatType + "_reminded");
     // Timer 回调或 onMsg 触发：执行审批动作
     new Handler(Looper.getMainLooper()).post(new Runnable() {
         public void run() {
@@ -4485,7 +4478,6 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                     handleAsyncApproval(tkPeerUin, tkChatType, tkPath, tkIdx, tkDesc, tkKey, "timeout");
                 }
             }, 30000);
-            waitingApprovalMap.put(appKey, "true");
             return "[WAITING_APPROVAL:" + rmDesc + "]";
         }
         if (cmd.equals("stat")) {
@@ -5567,38 +5559,12 @@ public void onMsg(Object msg) {
     }
     
     // 操作审批 + 等待审批状态
-    if (waitingApprovalMap.containsKey(String.valueOf(msg.peerUin) + "_" + msg.type)) {
+    // 消息队列：正在处理消息时缓存新消息，但优先处理审批指令
+    if (aiProcessing) {
         String waitOp = msg.msg.trim();
-        String waitUin = String.valueOf(msg.userUin);
-        if (waitUin.equals("0") || waitUin.equals("null") || waitUin.isEmpty()) { return; }
         if (waitOp.equals("/ai operation permit")) { handleOperationApproval(msg, true); return; }
         if (waitOp.equals("/ai operation reject")) { handleOperationApproval(msg, false); return; }
-        if (waitOp.startsWith("/ai") || startsWithWakeWord(waitOp)) {
-            if (msgQueue.size() >= MSG_QUEUE_MAX) { msgQueue.poll(); }
-            msgQueue.offer(msg);
-            String remindKey = String.valueOf(msg.peerUin) + "_" + msg.type + "_reminded";
-            if (!waitingApprovalMap.containsKey(remindKey)) {
-                waitingApprovalMap.put(remindKey, "true");
-                sendMsg(String.valueOf(msg.peerUin), "[Corax-Shell] 请先回复审批：/ai operation permit 或 /ai operation reject", msg.type);
-            }
-        }
-        return;
-    }
-    String trimmedOp = msg.msg.trim();
-    if (trimmedOp.equals("/ai operation permit")) {
-        handleOperationApproval(msg, true);
-        return;
-    }
-    if (trimmedOp.equals("/ai operation reject")) {
-        handleOperationApproval(msg, false);
-        return;
-    }
-
-    // 消息队列：正在处理消息时缓存新消息，不丢弃
-    if (aiProcessing) {
-        if (msgQueue.size() >= MSG_QUEUE_MAX) {
-            msgQueue.poll();
-        }
+        if (msgQueue.size() >= MSG_QUEUE_MAX) { msgQueue.poll(); }
         msgQueue.offer(msg);
         return;
     }
