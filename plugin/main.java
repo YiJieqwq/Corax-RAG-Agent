@@ -2431,8 +2431,6 @@ void handleOperationApproval(Object msg, boolean permit) {
 
 
 String waitForApproval(String appKey, String desc, String peerUin, int chatType, int timeoutSec) {
-    // 进入审批前先落盘 ctx，防止轮询卡死导致上下文丢失
-    saveCtxToDisk(peerUin, chatType, null);
     Map op = new HashMap();
     op.put("ts", System.currentTimeMillis());
     op.put("desc", desc);
@@ -2444,8 +2442,7 @@ String waitForApproval(String appKey, String desc, String peerUin, int chatType,
     }
     long deadline = System.currentTimeMillis() + timeoutSec * 1000L;
     String finalResult = "timeout";
-    int maxLoops = 300; // 最多 300 次兜底，防 BeanShell sleep 失效死循环
-    for (int loop = 0; loop < maxLoops && System.currentTimeMillis() < deadline; loop++) {
+    while (System.currentTimeMillis() < deadline) {
         Map checkOp = (Map) pendingApprovals.get(appKey);
         if (checkOp != null && checkOp.get("result") != null) {
             finalResult = (String) checkOp.get("result");
