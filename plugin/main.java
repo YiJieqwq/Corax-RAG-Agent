@@ -1950,9 +1950,18 @@ dumpMsgs.put(dj);
                 try { totalPt += Integer.parseInt(String.valueOf(sr2.get("prompt_tokens"))); } catch (Exception e) { }
                 try { totalCt += Integer.parseInt(String.valueOf(sr2.get("completion_tokens"))); } catch (Exception e) { }
                 String r2c = (String) sr2.getOrDefault("content", "");
+                JSONArray sr2tc = null;
+                if (sr2.containsKey("tool_calls")) {
+                    sr2tc = (JSONArray) sr2.get("tool_calls");
+                    JSONObject asstTC2 = new JSONObject();
+                    asstTC2.put("role", "assistant");
+                    asstTC2.put("content", r2c != null ? r2c : "");
+                    asstTC2.put("tool_calls", sr2tc);
+                    ai2Msgs.put(asstTC2);
+                }
+                // 本轮含 snapshot-rm 时先不发文本
                 boolean waitingInThisRound = false;
                 if (sr2tc != null) {
-                    // 先检查工具调用中是否包含 snapshot-rm，如果是，暂不发送文本
                     for (int wi = 0; wi < sr2tc.length(); wi++) {
                         JSONObject wtc = sr2tc.getJSONObject(wi);
                         String wfn = wtc.getJSONObject("function").getString("name");
@@ -1989,15 +1998,6 @@ dumpMsgs.put(dj);
                 } else if (!hasSentReply) {
                     // AI 返回空内容，静默跳过（shell 模式下正常）
                     hasSentReply = true;
-                }
-                JSONArray sr2tc = null;
-                if (sr2.containsKey("tool_calls")) {
-                    sr2tc = (JSONArray) sr2.get("tool_calls");
-                    JSONObject asstTC2 = new JSONObject();
-                    asstTC2.put("role", "assistant");
-                    asstTC2.put("content", r2c != null ? r2c : "");
-                    asstTC2.put("tool_calls", sr2tc);
-                    ai2Msgs.put(asstTC2);
                 }
                 if (!r2c.isEmpty() || sr2tc != null) {
                     addToContextTC(ctx, "assistant", r2c, null, sr2tc, null);
