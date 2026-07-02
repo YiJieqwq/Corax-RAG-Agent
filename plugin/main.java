@@ -1864,19 +1864,6 @@ dumpMsgs.put(dj);
                         sr.put("content", "<shell_output>\n" + output + "\n</shell_output>\n基于以上 shell 输出继续处理。如需发消息给用户，必须用 > /dev/out 重定向。");
                         ai2Msgs.put(sr);
                         if (output.startsWith("[WAITING_APPROVAL:")) {
-                            // 撤回本轮的 assistant 消息（AI 提前说的话）
-                            for (int ri = ctx.size() - 1; ri >= 0; ri--) {
-                                Map rm = (Map) ctx.get(ri);
-                                if ("assistant".equals(rm.get("role")) && rm.containsKey("tool_calls")) {
-                                    ctx.remove(ri);
-                                    break;
-                                }
-                            }
-                            // 清理本轮已发送的消息
-                            if (lastAssistantMsg != null && lastAssistantMsg.length() > 0) {
-                                lastAssistantMsg = null;
-                            }
-                            hasSentReply = false;
                             addToContextTC(ctx, "tool", "等待管理员审批中...", null, null, tcid);
                             waitingApprovalCtx = ctx;
                             waitingApprovalPid = peerUin;
@@ -1963,7 +1950,22 @@ dumpMsgs.put(dj);
                 try { totalPt += Integer.parseInt(String.valueOf(sr2.get("prompt_tokens"))); } catch (Exception e) { }
                 try { totalCt += Integer.parseInt(String.valueOf(sr2.get("completion_tokens"))); } catch (Exception e) { }
                 String r2c = (String) sr2.getOrDefault("content", "");
-                if (!r2c.isEmpty()) {
+                boolean waitingInThisRound = false;
+                if (sr2tc != null) {
+                    // 先检查工具调用中是否包含 snapshot-rm，如果是，暂不发送文本
+                    for (int wi = 0; wi < sr2tc.length(); wi++) {
+                        JSONObject wtc = sr2tc.getJSONObject(wi);
+                        String wfn = wtc.getJSONObject("function").getString("name");
+                        if (wfn.equals("shell")) {
+                            String wcmd = getToolArg(wtc, "cmd");
+                            if (wcmd.contains("corax-snapshot-rm")) {
+                                waitingInThisRound = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!r2c.isEmpty() && !waitingInThisRound) {
                     String[] segs = r2c.split("\\[SPLIT\\]");
                     for (int si = 0; si < segs.length; si++) {
                         String seg = segs[si].trim();
@@ -2494,13 +2496,70 @@ void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx,
                 if (enabledForSend(peerUin, chatType)) {
                     sendMsg(peerUin, "[Corax-Shell] " + resultMsg, chatType);
                 }
-                // 清除等待状态
+                // 清除等待状态 + 触发续话
                 String oldPid = waitingApprovalPid;
                 int oldCt = waitingApprovalCt;
-                List oldCtx = waitingApprovalCtx;
                 waitingApprovalCtx = null;
                 waitingApprovalPid = null;
                 waitingApprovalCt = -1;
+                // 触发 AI 续对话：构造触发消息调 handleAi
+                if (oldCtx != null && oldPid != null && oldCt >= 0 && !aiProcessing) {
+                    saveCtxToDisk(oldPid, oldCt);
+                    // 用当前上下文触发 AI 回复
+                    final String fp = oldPid;
+                    final int fc = oldCt;
+                    new Thread(new Runnable() {
+                        public void run() {
+                            try { Thread.sleep(200); } catch (Exception e) {}
+                            new Handler(Looper.getMainLooper()).post(new Runnable() {
+                                public void run() {
+                                    if (!aiProcessing) {
+                                        aiProcessing = true;
+                                        try {
+                                            List ctx2 = getAiContext(fp, fc);
+                                            if (ctx2 != null) {
+                                                Map cfg = loadAiConfig();
+                                                String prompt = buildAI2Prompt(fp, fc);
+                                                JSONArray msgs = new JSONArray();
+                                                Map sm = new HashMap();
+                                                sm.put("role", "system"); sm.put("content", prompt); msgs.put(sm);
+                                                for (int mi = 0; mi < ctx2.size(); mi++) msgs.put(ctx2.get(mi));
+                                                JSONArray tools = new JSONArray();
+                                                JSONObject td = new JSONObject(); JSONObject f = new JSONObject();
+                                                f.put("name", "shell"); f.put("description", "execute");
+                                                td.put("type", "function"); td.put("function", f);
+                                                JSONObject params = new JSONObject(); params.put("type", "object");
+                                                f.put("parameters", params);
+                                                tools.put(td);
+                                                Map result = callAI("", prompt, msgs, 8192, tools);
+                                                if (result != null) {
+                                                    String content = (String) result.getOrDefault("content", "");
+                                                    if (content != null && !content.isEmpty()) {
+                                                        String[] segs = content.split("\\[SPLIT\\]");
+                                                        for (int si = 0; si < segs.length; si++) {
+                                                            String seg = segs[si].trim();
+                                                            if (!seg.isEmpty()) {
+                                                                if ("1".equals(getAiConfig("ai_prefix"))) seg = "[AI] " + seg;
+                                                                sendMsg(fp, seg, fc);
+                                                                try { Thread.sleep(150); } catch (Exception e) {}
+                                                            }
+                                                        }
+                                                        Map asst = new HashMap();
+                                                        asst.put("role", "assistant"); asst.put("content", content);
+                                                        asst.put("_ts", System.currentTimeMillis());
+                                                        ctx2.add(asst);
+                                                        saveCtxToDisk(fp, fc);
+                                                    }
+                                                }
+                                            }
+                                        } catch (Exception e) { this.log("error.txt", "resume: " + e.getMessage()); }
+                                        finally { aiProcessing = false; }
+                                    }
+                                }
+                            });
+                        }
+                    }).start();
+                }
             } finally { onMainThread--; }
         }
     });
