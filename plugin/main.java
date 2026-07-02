@@ -247,11 +247,6 @@ void setDefaultAccountConfig(String type) {
 }
 
 boolean canUseAi(String uin) {
-
-boolean enabledForSend(String peerUin, int chatType) {
-    return readStringSet(pluginPath + "/config/enabled_conversations.txt")
-        .contains(peerUin + "_" + chatType);
-}
     String role = getRole(uin);
     if (role.equals("BLOCKED")) {
         return false;
@@ -267,6 +262,11 @@ boolean enabledForSend(String peerUin, int chatType) {
     }
     Set whitelist = readStringSet(pluginPath + "/config/members.txt");
     return whitelist.contains(uin);
+}
+
+boolean enabledForSend(String peerUin, int chatType) {
+    return readStringSet(pluginPath + "/config/enabled_conversations.txt")
+        .contains(peerUin + "_" + chatType);
 }
 
 // ==================== Tag 池 ====================
