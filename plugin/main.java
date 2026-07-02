@@ -5511,6 +5511,7 @@ public void onMsg(Object msg) {
         if (enabledForSend(String.valueOf(msg.peerUin), msg.type)) { sendMsg(String.valueOf(msg.peerUin), "[熔断] 检测到消息循环刷屏，已自动停止。60秒后恢复。", msg.type); }
         return;
     }
+    }
 
     synchronized (delayedTasks) {
         for (int di = 0; di < delayedTasks.size(); di++) {
