@@ -1367,6 +1367,7 @@ void handleAi(Object msg, String prompt) {
     }
     String peerUin = String.valueOf(msg.peerUin);
     int chatType = -1;
+    List ctx = null;
     try {
     if ("null".equals(peerUin) && patPeerUin != null) {
         peerUin = patPeerUin;
@@ -1480,7 +1481,7 @@ void handleAi(Object msg, String prompt) {
         }
     } catch (Exception ignored) { }
 
-    getDb(); List ctx = getAiContext(peerUin, chatType);
+    getDb(); ctx = getAiContext(peerUin, chatType);
 
     if (trimmed.equals("listen") || trimmed.equals("listen on") || trimmed.equals("listen off") || trimmed.equals("listen status")) {
         if (!userRole.equals("ADMIN") && !userRole.equals("OWNER")) {
