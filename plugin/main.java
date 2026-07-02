@@ -2020,13 +2020,14 @@ dumpMsgs.put(dj);
         sendMsg(peerUin, finalMsg.toString(), chatType);
     }
 
-    // v3.0: 精简 ctx 存储（带注解格式）
-    String sceneTag = chatType == 2 ? "[群:" + peerUin + "]" : "[私聊]";
-    // v3.0: ctx 落盘
-    saveCtxToDisk(peerUin, chatType);
-    writeLog(senderUin, "/ai: " + trimmed);
-    if (hasSentReply && !ai2Content.isEmpty()) {
-        lastAssistantMsg = ai2Content.trim();
+    try {
+        saveCtxToDisk(peerUin, chatType);
+        writeLog(senderUin, "/ai: " + trimmed);
+        if (hasSentReply && !ai2Content.isEmpty()) {
+            lastAssistantMsg = ai2Content.trim();
+        }
+    } catch (Exception e) {
+        this.log("error.txt", "handleAi tail: " + e.getMessage());
     }
     aiProcessing = false;
     processQueue();
