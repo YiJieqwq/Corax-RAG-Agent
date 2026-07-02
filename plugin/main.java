@@ -1939,7 +1939,7 @@ dumpMsgs.put(dj);
                                 try { Thread.sleep(150); } catch (Exception ignored) { }
                             }
                         }
-                        addToContext(ctx, "assistant", r2c, null);
+                        addToContextTC(ctx, "assistant", r2c, null, sr1tc, null);
                     }
                 }
                 break;
@@ -2481,66 +2481,13 @@ void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx,
                 if (enabledForSend(peerUin, chatType)) {
                     sendMsg(peerUin, "[Corax-Shell] " + resultMsg, chatType);
                 }
-                // 清除等待状态 + 触发 AI 续话
+                // 清除等待状态
                 String oldPid = waitingApprovalPid;
                 int oldCt = waitingApprovalCt;
                 List oldCtx = waitingApprovalCtx;
                 waitingApprovalCtx = null;
                 waitingApprovalPid = null;
                 waitingApprovalCt = -1;
-                // 触发 AI 基于更新后的 ctx 续回答
-                if (oldCtx != null && oldPid != null && oldCt >= 0) {
-                    Map cfg = loadAiConfig();
-                    String apiKey = (String) cfg.get("api_key");
-                    if (apiKey != null && !apiKey.isEmpty()) {
-                        JSONArray tools = new JSONArray();
-                        JSONObject toolDef = new JSONObject();
-                        JSONObject func = new JSONObject();
-                        func.put("name", "shell");
-                        func.put("description", "Execute shell command");
-                        JSONObject params = new JSONObject();
-                        params.put("type", "object");
-                        JSONObject props = new JSONObject();
-                        JSONObject cmdProp = new JSONObject();
-                        cmdProp.put("type", "string");
-                        props.put("cmd", cmdProp);
-                        params.put("properties", props);
-                        func.put("parameters", params);
-                        toolDef.put("type", "function");
-                        toolDef.put("function", func);
-                        tools.put(toolDef);
-                        String prompt = buildAI2Prompt(oldPid, oldCt);
-                        JSONArray msgs = new JSONArray();
-                        Map sm = new HashMap();
-                        sm.put("role", "system");
-                        sm.put("content", prompt);
-                        msgs.put(sm);
-                        for (int mi = 0; mi < oldCtx.size(); mi++) {
-                            msgs.put(oldCtx.get(mi));
-                        }
-                        Map resumeResult = callAI("", prompt, msgs, 8192, tools);
-                        if (resumeResult != null) {
-                            String content = (String) resumeResult.getOrDefault("content", "");
-                            if (content != null && !content.isEmpty()) {
-                                String[] segs = content.split("\\[SPLIT\\]");
-                                for (int si = 0; si < segs.length; si++) {
-                                    String seg = segs[si].trim();
-                                    if (!seg.isEmpty()) {
-                                        if ("1".equals(getAiConfig("ai_prefix"))) { seg = "[AI] " + seg; }
-                                        sendMsg(oldPid, seg, oldCt);
-                                        try { Thread.sleep(150); } catch (Exception e) {}
-                                    }
-                                }
-                                Map asst = new HashMap();
-                                asst.put("role", "assistant");
-                                asst.put("content", content);
-                                asst.put("_ts", System.currentTimeMillis());
-                                oldCtx.add(asst);
-                                saveCtxToDisk(oldPid, oldCt);
-                            }
-                        }
-                    }
-                }
             } finally { onMainThread--; }
         }
     });
