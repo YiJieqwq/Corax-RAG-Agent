@@ -2428,6 +2428,30 @@ void handleOperationApproval(Object msg, boolean permit) {
 }
 
 
+String waitForApproval(String appKey, String desc, String peerUin, int chatType, int timeoutSec) {
+    Map op = new HashMap();
+    op.put("ts", System.currentTimeMillis());
+    op.put("desc", desc);
+    op.put("uin", peerUin);
+    op.put("type", Integer.valueOf(chatType));
+    pendingApprovals.put(appKey, op);
+    if (enabledForSend(peerUin, chatType)) {
+        sendMsg(peerUin, "[Corax-Shell] 请求写入\n" + desc + "\n是否批准？" + timeoutSec + "s后自动拒绝\n发送 /ai operation permit 或 /ai operation reject", chatType);
+    }
+    long deadline = System.currentTimeMillis() + timeoutSec * 1000L;
+    String finalResult = "timeout";
+    while (System.currentTimeMillis() < deadline) {
+        Map checkOp = (Map) pendingApprovals.get(appKey);
+        if (checkOp != null && checkOp.get("result") != null) {
+            finalResult = (String) checkOp.get("result");
+            break;
+        }
+        try { Thread.sleep(200); } catch (Exception e) {}
+    }
+    pendingApprovals.remove(appKey);
+    return finalResult;
+}
+
 // ==================== 联网搜索 ====================
 String doWebSearch(String query) {
     Map cfg = loadAiConfig();

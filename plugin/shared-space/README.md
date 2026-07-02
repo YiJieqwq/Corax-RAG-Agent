@@ -186,7 +186,7 @@ access 取值：OWNER(宿主) / ADMIN(管理员) / MEMBER(普通成员) / BLOCKE
 | `api_key` | — | DeepSeek API key |
 | `model` | `deepseek-v4-flash` | 模型 |
 | `ai_url` | `https://api.deepseek.com` | API 地址 |
-| `context_ttl` | `60` | 对话保留时间（分钟） |
+| `context_ttl` | `0` | 对话保留时间（分钟，0=永不过期） |
 | `context_limit` | `60` | 最大保留轮数 |
 | `temperature` | `0.7` | 生成温度 |
 | `sewarden` | `1` | 标签逃逸防护（推荐开启） |
