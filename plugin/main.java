@@ -4045,12 +4045,14 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
 String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, String peerUin, int chatType) {
     try {
         if (cmd.equals("echo")) {
+            boolean esc = args.length > 0 && args[0].equals("-e");
+            int ai = esc ? 1 : 0;
             StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < args.length; i++) {
-                if (i > 0) {
-                    sb.append(" ");
-                }
-                sb.append(args[i]);
+            for (int i = ai; i < args.length; i++) {
+                if (i > ai) { sb.append(" "); }
+                String a = args[i];
+                if (esc) { a = a.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\"); }
+                sb.append(a);
             }
             sb.append("\n");
             return sb.toString();
@@ -4630,15 +4632,27 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             return sb.toString().trim();
         }
         if (cmd.equals("sort")) {
-            String[] lines = stdin.split("\n");
+            boolean uniq = false; String outFile = null;
+            for (int si = 0; si < args.length; si++) {
+                if (args[si].equals("-u")) { uniq = true; }
+                else if (args[si].equals("-o") && si + 1 < args.length) { outFile = args[++si]; }
+            }
+            String[] lines = stdin.split("\\n");
             java.util.Arrays.sort(lines);
             StringBuilder sb = new StringBuilder();
+            String last = null;
             for (int si = 0; si < lines.length; si++) {
-                if (!lines[si].trim().isEmpty()) {
-                    sb.append(lines[si]).append("\n");
-                }
+                if (lines[si].trim().isEmpty()) { continue; }
+                if (uniq && lines[si].equals(last)) { continue; }
+                last = lines[si];
+                sb.append(lines[si]).append("\\n");
             }
-            return sb.toString().trim();
+            String result = sb.toString().trim();
+            if (outFile != null) {
+                String err = vfsWrite(outFile, result + "\\n", false, senderUin, peerUin, chatType);
+                return err != null ? err : "";
+            }
+            return result;
         }
         if (cmd.equals("uniq")) {
             String[] lines = stdin.split("\n");
