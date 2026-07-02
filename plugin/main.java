@@ -2424,6 +2424,7 @@ void handleOperationApproval(Object msg, boolean permit) {
 
 void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx, String rmDesc, String appKey, String action) {
     waitingApprovalMap.remove(appKey);
+    waitingApprovalMap.remove(peerUin + "_" + chatType + "_reminded");
     // Timer 回调或 onMsg 触发：执行审批动作
     new Handler(Looper.getMainLooper()).post(new Runnable() {
         public void run() {
@@ -5566,10 +5567,21 @@ public void onMsg(Object msg) {
     }
     
     // 操作审批 + 等待审批状态
-    if (waitingApprovalMap.containsKey(peerUin + "_" + msg.type)) {
+    if (waitingApprovalMap.containsKey(String.valueOf(msg.peerUin) + "_" + msg.type)) {
         String waitOp = msg.msg.trim();
+        String waitUin = String.valueOf(msg.userUin);
+        if (waitUin.equals("0") || waitUin.equals("null") || waitUin.isEmpty()) { return; }
         if (waitOp.equals("/ai operation permit")) { handleOperationApproval(msg, true); return; }
         if (waitOp.equals("/ai operation reject")) { handleOperationApproval(msg, false); return; }
+        if (waitOp.startsWith("/ai") || startsWithWakeWord(waitOp)) {
+            if (msgQueue.size() >= MSG_QUEUE_MAX) { msgQueue.poll(); }
+            msgQueue.offer(msg);
+            String remindKey = String.valueOf(msg.peerUin) + "_" + msg.type + "_reminded";
+            if (!waitingApprovalMap.containsKey(remindKey)) {
+                waitingApprovalMap.put(remindKey, "true");
+                sendMsg(String.valueOf(msg.peerUin), "[Corax-Shell] 请先回复审批：/ai operation permit 或 /ai operation reject", msg.type);
+            }
+        }
         return;
     }
     String trimmedOp = msg.msg.trim();
