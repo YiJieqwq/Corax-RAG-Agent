@@ -1139,7 +1139,7 @@ List getAiContext(String peerUin, int chatType) {
                     Map last = (Map) ctx.get(ctx.size() - 1);
                     this.log("error.txt", "loadCtx: " + key + " loaded " + ctx.size() + " msgs from disk");
                     Long ts = (Long) last.get("_ts");
-                    if (ts != null && (now - ts) > ttl) {
+                    if (ttl > 0 && ts != null && (now - ts) > ttl) {
                         ctx = new ArrayList();
                     }
                 }
