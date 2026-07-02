@@ -2825,7 +2825,7 @@ String vfsWrite(String path, String content, boolean append, String senderUin, S
         return vfsWritePromptActive(content);
     }
     if (path.startsWith("/etc/")) {
-        return vfsWriteEtc(path, content, append);
+        return vfsWriteEtc(path, content, append, senderUin, peerUin, chatType);
     }
     if (path.equals("/dev/out")) {
         vfsWriteDevOut(content, peerUin, chatType);
@@ -3015,7 +3015,7 @@ String vfsReadEtc(String path) {
     }
     return readFileString(real);
 }
-String vfsWriteEtc(String path, String content, boolean append) {
+String vfsWriteEtc(String path, String content, boolean append, String senderUin, String peerUin, int chatType) {
     String real = vfsMapEtcPath(path);
     if (!new File(real).exists()) {
         return "[只读: 系统路径不允许新建文件, 只能修改已有配置]";
