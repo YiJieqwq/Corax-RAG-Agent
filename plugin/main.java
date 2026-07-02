@@ -1161,11 +1161,10 @@ void clearAiContext(String peerUin, int chatType) {
     }
 }
 
-void saveCtxToDisk(String peerUin, int chatType) {
+void saveCtxToDisk(String peerUin, int chatType, List forSave) {
     String key = peerUin + "_" + chatType;
-    List ctx = (List) aiContexts.get(key);
+    List ctx = forSave != null ? forSave : (List) aiContexts.get(key);
     if (ctx == null || ctx.isEmpty()) {
-        this.log("error.txt", "saveCtx: skip " + key + " empty=" + (ctx == null));
         return;
     }
     try {
@@ -1249,7 +1248,7 @@ void injectApprovalResult(String peerUin, int chatType, String message) {
     m.put("content", "<operation-result>" + message + "</operation-result>");
     m.put("_ts", System.currentTimeMillis());
     ictx.add(m);
-    saveCtxToDisk(peerUin, chatType);
+    saveCtxToDisk(peerUin, chatType, null);
 }
 void addToContext(List ctx, String role, String content, String name) {
     Map m = new HashMap();
@@ -1529,7 +1528,7 @@ void handleAi(Object msg, String prompt) {
         if (!newPersona.isEmpty()) {
             addToContext(ctx, "system", "现在你需要扮演以下角色，忘记之前的身份设定：\n\n" + newPersona, null);
         }
-        saveCtxToDisk(peerUin, chatType);
+        saveCtxToDisk(peerUin, chatType, null);
         return;
     }
     if (trimmed.equals("debug") || trimmed.startsWith("debug ")) {
@@ -2050,7 +2049,7 @@ dumpMsgs.put(dj);
         e.printStackTrace(new PrintWriter(sw));
         this.log("error.txt", "handleAi trace: " + sw.toString());
     } finally {
-        try { saveCtxToDisk(peerUin, chatType); } catch (Exception e) {}
+        try { saveCtxToDisk(peerUin, chatType, ctx); } catch (Exception e) {}
         aiProcessing = false;
         processQueue();
     }
@@ -5467,7 +5466,7 @@ public void onDestroy() {
         try {
             String[] parts = ((String) key).split("_");
             if (parts.length == 2) {
-                saveCtxToDisk(parts[0], Integer.parseInt(parts[1]));
+                saveCtxToDisk(parts[0], Integer.parseInt(parts[1]), null);
             }
         } catch (Exception ignored) { }
     }
@@ -5823,7 +5822,7 @@ public void onMsg(Object msg) {
         lctx.add(m4);
 
 
-        saveCtxToDisk(peerUin, chatType);
+        saveCtxToDisk(peerUin, chatType, null);
         return;
     }
     // 唤醒词路由
