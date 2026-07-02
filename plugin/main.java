@@ -2444,6 +2444,7 @@ void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx,
             onMainThread++;
             try {
                 Map op = (Map) pendingApprovals.remove(appKey);
+                if (op == null) { return; }  // 已被处理，跳过
                 if (op != null) {
                     Timer tm = (Timer) op.get("timer");
                     if (tm != null) { try { tm.cancel(); } catch (Exception e) {} }
@@ -4502,11 +4503,13 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             final int tkIdx = rmIdx;
             final String tkDesc = rmDesc;
             final String tkKey = appKey;
-            new Timer(true).schedule(new TimerTask() {
+            final Timer rmTimer = new Timer(true);
+            rmTimer.schedule(new TimerTask() {
                 public void run() {
                     handleAsyncApproval(tkPeerUin, tkChatType, tkPath, tkIdx, tkDesc, tkKey, "timeout");
                 }
             }, 30000);
+            rmOp.put("timer", rmTimer);
             return "[WAITING_APPROVAL:" + rmDesc + "]";
         }
         if (cmd.equals("stat")) {
