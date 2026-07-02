@@ -1137,6 +1137,7 @@ List getAiContext(String peerUin, int chatType) {
                 }
                 if (!ctx.isEmpty()) {
                     Map last = (Map) ctx.get(ctx.size() - 1);
+                    this.log("error.txt", "loadCtx: " + key + " loaded " + ctx.size() + " msgs from disk");
                     Long ts = (Long) last.get("_ts");
                     if (ts != null && (now - ts) > ttl) {
                         ctx = new ArrayList();
@@ -1164,6 +1165,7 @@ void saveCtxToDisk(String peerUin, int chatType) {
     String key = peerUin + "_" + chatType;
     List ctx = (List) aiContexts.get(key);
     if (ctx == null || ctx.isEmpty()) {
+        this.log("error.txt", "saveCtx: skip " + key + " empty=" + (ctx == null));
         return;
     }
     try {
