@@ -1094,7 +1094,7 @@ String buildAI2Prompt(String peerUin, int chatType) {
 List getAiContext(String peerUin, int chatType) {
     String key = peerUin + "_" + chatType;
     List ctx = (List) aiContexts.get(key);
-    long ttl = 30 * 60 * 1000L;
+    long ttl = 0;
     try { ttl = Long.parseLong(getAiConfig("context_ttl")) * 60 * 1000L; } catch (Exception e) { }
     long now = System.currentTimeMillis();
     if (ttl > 0 && ctx != null && !ctx.isEmpty()) {
@@ -5623,6 +5623,9 @@ public void onMsg(Object msg) {
         handleAi(msg, aiArg); return;
     }
     if (!aiProcessing && startsWithWakeWord(trimmed)) {
+        if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
+            return;
+        }
         handleAi(msg, trimmed); return;
     }
     if (trimmed.startsWith("/setdefaultaccount")) {
