@@ -1302,7 +1302,7 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         conn.setRequestProperty("Connection", "keep-alive");
         conn.setDoOutput(true);
         conn.setConnectTimeout(15000);
-        conn.setReadTimeout(60000);
+        conn.setReadTimeout(15000);
         JSONObject body = new JSONObject();
         body.put("model", model);
         double temp = 0.7;
@@ -1766,7 +1766,15 @@ dumpMsgs.put(dj);
     usr.put("content", usrContent);
     ai2Msgs.put(usr);
 
-    Map ai2Result = callAI("", ai2Prompt, ai2Msgs, 8192, ai2Tools);
+    Map ai2Result = null;
+    int retry0 = 0;
+    while (retry0 < 3 && ai2Result == null) {
+        ai2Result = callAI("", ai2Prompt, ai2Msgs, 8192, ai2Tools);
+        if (ai2Result == null && retry0 < 2) {
+            retry0++;
+            sendMsg(peerUin, "[AI] 正在重连... (" + retry0 + "/2)", chatType);
+        }
+    }
 
     totalCalls++;
     String ai2Content = ""; JSONArray ai2TCs = null;
@@ -1912,7 +1920,15 @@ dumpMsgs.put(dj);
                 forceMsg.put("content", "已达 shell 调用上限 (" + maxSr + "轮)。基于以上所有结果，现在必须直接回复用户。");
                 ai2Msgs.put(forceMsg);
                 shellCalls.clear();
-                Map sr2 = callAI("", ai2Prompt, ai2Msgs, 8192, null); totalCalls++;
+                Map sr2 = null;
+            int retry3 = 0;
+            while (retry3 < 3 && sr2 == null) {
+                sr2 = callAI("", ai2Prompt, ai2Msgs, 8192, null); totalCalls++;
+                if (sr2 == null && retry3 < 2) {
+                    retry3++;
+                    sendMsg(peerUin, "[AI] 正在重连... (" + retry3 + "/2)", chatType);
+                }
+            }
                 if (sr2 != null) {
                     String r2c = (String) sr2.getOrDefault("content", "");
                     if (!r2c.isEmpty()) {
@@ -1942,7 +1958,15 @@ dumpMsgs.put(dj);
                 break;
             }
             shellCalls.clear();
-            Map sr2 = callAI("", ai2Prompt, ai2Msgs, 8192, ai2Tools); totalCalls++;
+            Map sr2 = null;
+            int retry2 = 0;
+            while (retry2 < 3 && sr2 == null) {
+                sr2 = callAI("", ai2Prompt, ai2Msgs, 8192, ai2Tools); totalCalls++;
+                if (sr2 == null && retry2 < 2) {
+                    retry2++;
+                    sendMsg(peerUin, "[AI] 正在重连... (" + retry2 + "/2)", chatType);
+                }
+            }
             if (sr2 != null) {
                 try { totalPt += Integer.parseInt(String.valueOf(sr2.get("prompt_tokens"))); } catch (Exception e) { }
                 try { totalCt += Integer.parseInt(String.valueOf(sr2.get("completion_tokens"))); } catch (Exception e) { }
