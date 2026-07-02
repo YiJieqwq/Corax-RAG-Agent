@@ -1348,11 +1348,12 @@ void handleAi(Object msg, String prompt) {
     long startTime = System.currentTimeMillis();
     int totalPt = 0; int totalCt = 0; int totalCalls = 0;
     String senderUin = String.valueOf(msg.userUin);
-    // 系统消息保护：UIN 无效时跳过处理
     if (senderUin == null || senderUin.isEmpty() || senderUin.equals("0") || senderUin.equals("null")) {
-        aiProcessing = false; return;
+        aiProcessing = false;
+        return;
     }
     String peerUin = String.valueOf(msg.peerUin);
+    try {
     if ("null".equals(peerUin) && patPeerUin != null) {
         peerUin = patPeerUin;
     }
@@ -2020,17 +2021,17 @@ dumpMsgs.put(dj);
         sendMsg(peerUin, finalMsg.toString(), chatType);
     }
 
-    try {
-        saveCtxToDisk(peerUin, chatType);
         writeLog(senderUin, "/ai: " + trimmed);
         if (hasSentReply && !ai2Content.isEmpty()) {
             lastAssistantMsg = ai2Content.trim();
         }
     } catch (Exception e) {
-        this.log("error.txt", "handleAi tail: " + e.getMessage());
+        this.log("error.txt", "handleAi: " + e.getMessage());
+    } finally {
+        try { saveCtxToDisk(peerUin, chatType); } catch (Exception e) {}
+        aiProcessing = false;
+        processQueue();
     }
-    aiProcessing = false;
-    processQueue();
 }
 
 void processQueue() {
