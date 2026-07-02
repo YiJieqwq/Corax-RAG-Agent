@@ -8,7 +8,7 @@
 /ai set api_key <你的 sk-xxx key>
 /ai set search_api_key <你的搜索 key>
 /ai on 启用当前对话框 AI 功能
-集成包附带 陈千语.prompt.txt 人设文件，默认启用，可用/ai config 查看唤醒词列表
+集成包附带 小猫.prompt.txt 人设文件，默认启用，唤醒词：小猫,猫猫,小喵。可用/ai reboot 切换至 陈千语 或其他人设。
 
 ⚠️ 旧版本更新须知：
 本版本改动较多，不建议保留任何旧版本文件。请清空 config/ctx/ 下的旧上下文，删除 config/data.db 重建数据库。

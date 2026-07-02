@@ -2320,7 +2320,7 @@ void writeLog(String senderUin, String command) {
 String getActivePersona() {
     File f = new File(pluginPath + "/config/active_prompt.txt");
     if (!f.exists()) {
-        return "default";
+        return "小猫";
     }
     try {
         BufferedReader br = new BufferedReader(new FileReader(f));
@@ -2330,7 +2330,7 @@ String getActivePersona() {
             return s.trim();
         }
     } catch (Exception e) { }
-    return "default";
+    return "小猫";
 }
 
 void setActivePersona(String name) {
