@@ -247,6 +247,11 @@ void setDefaultAccountConfig(String type) {
 }
 
 boolean canUseAi(String uin) {
+
+boolean enabledForSend(String peerUin, int chatType) {
+    return readStringSet(pluginPath + "/config/enabled_conversations.txt")
+        .contains(peerUin + "_" + chatType);
+}
     String role = getRole(uin);
     if (role.equals("BLOCKED")) {
         return false;
@@ -2449,16 +2454,18 @@ void handleAsyncApproval(String peerUin, int chatType, String rmPath, int rmIdx,
                     if (delTarget != null) {
                         new File(delDir, delTarget).delete();
                         injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 已被批准并执行");
-                        sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 已被批准并删除", chatType);
+                        if (enabledForSend(peerUin, chatType)) {
+                            sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 已被批准并删除", chatType);
+                        }
                     } else {
                         injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 批准但快照已不存在");
                     }
                 } else if ("reject".equals(action)) {
                     injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 已被拒绝");
-                    sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 已被拒绝", chatType);
+                        if (enabledForSend(peerUin, chatType)) { sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 已被拒绝", chatType); }
                 } else {
                     injectApprovalResult(peerUin, chatType, "删除快照 " + rmDesc + " 审批超时，已自动拒绝");
-                    sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 审批超时已自动拒绝", chatType);
+                        if (enabledForSend(peerUin, chatType)) { sendMsg(peerUin, "[Corax-Shell] " + rmDesc + " 审批超时已自动拒绝", chatType); }
                 }
             } finally { onMainThread--; }
         }
@@ -4469,7 +4476,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             rmOp.put("path", rmPath);
             rmOp.put("rmIdx", Integer.valueOf(rmIdx));
             pendingApprovals.put(appKey, rmOp);
-            sendMsg(peerUin, "[Corax-Shell] 请求删除快照\n" + rmDesc + "\n是否批准？30s后自动拒绝\n发送 /ai operation permit 或 /ai operation reject", chatType);
+            if (enabledForSend(peerUin, chatType)) { sendMsg(peerUin, "[Corax-Shell] 请求删除快照\n" + rmDesc + "\n是否批准？30s后自动拒绝\n发送 /ai operation permit 或 /ai operation reject", chatType);
             // 30s 超时异步处理
             final String tkPeerUin = peerUin;
             final int tkChatType = chatType;
@@ -5498,7 +5505,7 @@ public void onMsg(Object msg) {
             aiProcessing = false;
             msgQueue.clear();
             daemonOutQueue.clear();
-            sendMsg(String.valueOf(msg.peerUin), "[熔断] 检测到消息循环刷屏，已自动停止。60秒后恢复。", msg.type);
+            if (enabledForSend(String.valueOf(msg.peerUin), msg.type)) { sendMsg(String.valueOf(msg.peerUin), "[熔断] 检测到消息循环刷屏，已自动停止。60秒后恢复。", msg.type); }
             return;
         }
     } else {
