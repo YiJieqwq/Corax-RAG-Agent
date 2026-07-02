@@ -1353,11 +1353,12 @@ void handleAi(Object msg, String prompt) {
         return;
     }
     String peerUin = String.valueOf(msg.peerUin);
+    int chatType = -1;
     try {
     if ("null".equals(peerUin) && patPeerUin != null) {
         peerUin = patPeerUin;
     }
-    int chatType = msg.type;
+    chatType = msg.type;
     String userRole = getRole(senderUin);
     String senderName = getMemberName(chatType, peerUin, senderUin);
     boolean debug = "1".equals(getAiConfig("debug"));
