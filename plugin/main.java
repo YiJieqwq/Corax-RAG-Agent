@@ -1770,9 +1770,11 @@ dumpMsgs.put(dj);
     int retry0 = 0;
     while (retry0 < 3 && ai2Result == null) {
         ai2Result = callAI("", ai2Prompt, ai2Msgs, 8192, ai2Tools);
-        if (ai2Result == null && retry0 < 2) {
+        if (ai2Result == null) {
             retry0++;
-            sendMsg(peerUin, "[AI] 正在重连... (" + retry0 + "/2)", chatType);
+            if (retry0 < 3) {
+                sendMsg(peerUin, "[AI] 正在重连... (" + retry0 + "/2)", chatType);
+            }
         }
     }
 
@@ -1924,9 +1926,9 @@ dumpMsgs.put(dj);
             int retry3 = 0;
             while (retry3 < 3 && sr2 == null) {
                 sr2 = callAI("", ai2Prompt, ai2Msgs, 8192, null); totalCalls++;
-                if (sr2 == null && retry3 < 2) {
+                if (sr2 == null) {
                     retry3++;
-                    sendMsg(peerUin, "[AI] 正在重连... (" + retry3 + "/2)", chatType);
+                    if (retry3 < 3) { sendMsg(peerUin, "[AI] 正在重连... (" + retry3 + "/2)", chatType); }
                 }
             }
                 if (sr2 != null) {
@@ -1962,9 +1964,9 @@ dumpMsgs.put(dj);
             int retry2 = 0;
             while (retry2 < 3 && sr2 == null) {
                 sr2 = callAI("", ai2Prompt, ai2Msgs, 8192, ai2Tools); totalCalls++;
-                if (sr2 == null && retry2 < 2) {
+                if (sr2 == null) {
                     retry2++;
-                    sendMsg(peerUin, "[AI] 正在重连... (" + retry2 + "/2)", chatType);
+                    if (retry2 < 3) { sendMsg(peerUin, "[AI] 正在重连... (" + retry2 + "/2)", chatType); }
                 }
             }
             if (sr2 != null) {
