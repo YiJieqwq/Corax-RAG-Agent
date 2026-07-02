@@ -1,4 +1,19 @@
 # Changelog
+## v5.1.0 — C-VFS
+### Features
+- **快照审批系统**：corax-snapshot-rm 发送审批请求，轮询等待用户 /ai operation permit/reject，对 AI 透明（像普通工具调用）
+- **熔断器**：滑动窗口检测消息刷屏，自动停止 60s
+- **enabledForSend**：非 handleAi 路径发送前检查会话是否启用 AI
+
+### Bug Fixes
+- tool_calls 正确存入上下文（trimCtx 尾部清理逻辑移除）
+- echo 自动加换行
+- tokenizer：跳过 >&N stderr 重定向、跳过孤儿 &
+- ls /etc /bin /proc /ctx 不带斜杠可访问
+- handleAi try-catch-finally 兜底：崩溃不丢上下文
+- 审批路由优先级修正（不再触发普通 /ai 对话）
+- BeanShell 兼容：'{' 字符常量 → ASCII 123，awk 命令展开
+
 ## v5.0.1 — C-VFS
 ### Features
 - **快照系统**：每次写操作前自动保存旧版本到 .snapshots/，上限 10 个 (thanks @Shixiaoshi0417)
