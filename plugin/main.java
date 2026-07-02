@@ -5497,13 +5497,12 @@ public void onMsg(Object msg) {
     // 检查并执行到期延时任务
     // 轮询兜底：检查到期延时任务（Timer已触发的跳过）
     long nowMs = System.currentTimeMillis();
-    // 熔断：滑动窗口检测刷屏
-    if (nowMs - lastSendMs > 500) {
-        rapidSendCount = 0;
-    }
-    rapidSendCount++;
-    lastSendMs = nowMs;
-    if (rapidSendCount > 5) {
+    // 熔断：滑动窗口检测刷屏（仅统计外部消息）
+    if (!String.valueOf(msg.userUin).equals(myUin)) {
+        if (nowMs - lastSendMs > 500) { rapidSendCount = 0; }
+        rapidSendCount++;
+        lastSendMs = nowMs;
+        if (rapidSendCount > 5) {
         breakerTripped = true;
         breakerCooldown = nowMs;
         aiProcessing = false;
