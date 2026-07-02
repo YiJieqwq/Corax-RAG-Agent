@@ -4477,7 +4477,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             rmOp.put("path", rmPath);
             rmOp.put("rmIdx", Integer.valueOf(rmIdx));
             pendingApprovals.put(appKey, rmOp);
-            if (enabledForSend(peerUin, chatType)) { sendMsg(peerUin, "[Corax-Shell] 请求删除快照\n" + rmDesc + "\n是否批准？30s后自动拒绝\n发送 /ai operation permit 或 /ai operation reject", chatType);
+            if (enabledForSend(peerUin, chatType)) { sendMsg(peerUin, "[Corax-Shell] 请求删除快照\n" + rmDesc + "\n是否批准？30s后自动拒绝\n发送 /ai operation permit 或 /ai operation reject", chatType); }
             // 30s 超时异步处理
             final String tkPeerUin = peerUin;
             final int tkChatType = chatType;
