@@ -1101,6 +1101,7 @@ List getAiContext(String peerUin, int chatType) {
         Map last = (Map) ctx.get(ctx.size() - 1);
         Long ts = (Long) last.get("_ts");
         if (ts != null && (now - ts) > ttl) {
+            this.log("error.txt", "TTL: 删除过期上下文 " + key + " ts=" + ts + " ttl=" + ttl);
             aiContexts.remove(key);
             ctx = null;
         }
