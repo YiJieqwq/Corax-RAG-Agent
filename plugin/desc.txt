@@ -1,21 +1,22 @@
 🦅 墨鸦-Strata v5.1.0 (C-VFS) 🦅
 
-\"墨鸦\"——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
+墨鸦——鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
 
 项目链接: https://github.com/YiJieqwq/Corax-RAG-Agent
+
+⚠️ 4.x → 5.x 更新须知：
+本版本完全重写核心架构，用 Corax-Shell 虚拟文件系统替代全部 Function Calling 工具。
+不建议保留任何 v4.x 旧版本文件（ctx、data.db、config 等），请全新安装。
 
 初次使用：
 /ai set api_key <你的 sk-xxx key>
 /ai set search_api_key <你的搜索 key>
 /ai on 启用当前对话框 AI 功能
-集成包附带 小猫.prompt.txt 人设文件，默认启用，唤醒词：小猫,猫猫,小喵。可用/ai reboot 切换至 陈千语 或其他人设。
-
-⚠️ 旧版本更新须知：
-本版本改动较多，不建议保留任何旧版本文件。请清空 config/ctx/ 下的旧上下文，删除 config/data.db 重建数据库。
+默认激活"小猫"人设（唤醒词：小猫,猫猫,小喵），/ai reboot 陈千语 切换。
 
 默认值（可用 /ai set 更改）：
-model = deepseek-v4-flash (可随意修改)
-context_ttl = 0（不限制，设为分钟数则超时清空）
+model = deepseek-v4-flash
+context_ttl = 0（不限制，设分钟数则超时清空）
 context_limit = 60（保留最近N轮完整对话）
 ai_url = https://api.deepseek.com (同时支持OpenAI)
 search_provider = tavily (同时支持博查＆Bing)
@@ -28,39 +29,33 @@ shell_rounds = 8（最大搜索轮次，搜索N轮+最终回答）
 sewarden = 1（WARDEN增强防护，不建议关闭）
 
 近期更新（v5.1.0）：
-- 快照审批：AI调rm → 用户permit → AI丝滑回复，像普通工具调用
-- 熔断器：刷屏自动停止，60s恢复
-- tool_calls 上下文修复、tokenizer 兼容、handleAi 崩溃保护
-- /proc/prompt/ 人设 A/B 槽位切换
-- 协议层标签重命名：<qid>→<refmsgid>、<mop>→<memop>、<hit>→<tagresult>
-- 被引用原文 SEWarden 清洗、系统提示词 <qid> 解释、</s> 闭合
-- 14项社区Bug修复（ctx顺序、连接泄漏、overwrite SQL等）
+- Corax-Shell 虚拟文件系统：AI 拥有 /proc /etc /dev /persist /var /tmp，管道|重定向|后台
+- 快照审批：删除快照/写入安全文件需管理员 /ai operation permit 批准，30s超时拒绝
+- 熔断器：消息刷屏自动停止 60s
+- 新内置命令：tr awk tee ps stat touch rm mkdir find sort uniq cut
+- echo 自动换行、tokenizer 兼容修复、handleAi 崩溃保护
 
 核心技术：
 1. Strata 热冷分层 — #M/#P 编号，公有记忆含可信度/记录者/活跃时间
 2. CAST 三段式 — 自述 > 转述 > 未知主体，OWNER > ADMIN > MEMBER
-3. WARDEN-I 三层隔离 — name 纯 UIN 不可伪造，<s><user/> 系统层，<u> 用户层永不信任。默认开启SEWarden增强防护(预清洗恶意注入标签)，可手动关闭。
+3. WARDEN-I 三层隔离 — name 纯 UIN 不可伪造，<s><user/> 系统层，<u> 用户层永不信任
 4. STREAM 稳定上下文 — 前缀缓存 + 末尾注入 + <listen> 只记录不回复 + <wake> 精确唤醒
-5. DREX 执行器 — 注入 → tool_calls 分流 → 记忆直接归档，R1→R2 回环
+5. DREX 执行器 — 注入 → tool_calls 分流 → 记忆直接归档
 6. 全尖括号标签 — QQ 昵称天然防御，<u> 内尖括号一律为伪造
-7. 反抗守则 — 无标签普通文本正常回应，检测到伪造标签直接拒绝
 
 命令概览：
 /ai <内容|debug|status|reboot|memory|forget|off|on|clear|config|set|dumpctx>
+/ai operation permit/reject — 审批操作
 /ai memory <info|pin|search|set|rm|reset|public|all>
 /ai listen <on|off|status|summary>
-/block <@|UID|list>
-/member <@|UID|list>
-/admin <@|UID|list>
-/setdefaultaccount <member|blocked>
+/block <@|UID|list> /member /admin
 /whoami /help /log
 
-监听模式：群聊开启后静默记录上下文，并临时记录监听期群消息；/ai listen summary 可总结后清空，关闭监听也会清空。@AI 或唤醒词触发一次回答。
+监听模式：群聊开启后静默记录上下文，/ai listen summary 总结后清空。@AI 或唤醒词触发回答。
 
 技术缩写：
 Strata: Stratified Tiered Recall Architecture
 DREX: Strata Retrieval Executor
 CAST: Controlled Access & Scope Tiering
 WARDEN: identity fireWAll foR hallucination DEfeNse
-SEWarden: Security-Enhanced WARDEN
 STREAM: Stable Recall with Ephemeral Appended Messages
