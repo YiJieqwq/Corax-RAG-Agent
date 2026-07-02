@@ -2391,6 +2391,18 @@ void handleOperationApproval(Object msg, boolean permit) {
     String akey = apu + "_" + act;
     Map aop = (Map) pendingApprovals.get(akey);
     if (aop == null) {
+        // 兜底：遍历 pendingApprovals 找匹配项
+        for (Object v : pendingApprovals.values()) {
+            Map candidate = (Map) v;
+            String candUin = (String) candidate.get("uin");
+            Integer candType = (Integer) candidate.get("type");
+            if (apu.equals(candUin) && candType != null && candType.intValue() == act) {
+                aop = candidate;
+                break;
+            }
+        }
+    }
+    if (aop == null) {
         sendStyledHeader(msg, "INFO", "没有待审批的操作");
         return;
     }
@@ -4430,6 +4442,8 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             rmOp.put("result", null);
             final Object lock = new Object();
             rmOp.put("lock", lock);
+            rmOp.put("uin", peerUin);
+            rmOp.put("type", Integer.valueOf(chatType));
             // 30s 超时定时器（Timer 线程，不走 Handler.post）
             Timer rmTm = new Timer(true);
             rmTm.schedule(new TimerTask() {
