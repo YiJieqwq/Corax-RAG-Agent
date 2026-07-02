@@ -3030,6 +3030,11 @@ String vfsWriteEtc(String path, String content, boolean append, String senderUin
         String ar = waitForApproval(appKey, desc, peerUin, chatType, 30);
         if ("timeout".equals(ar)) { return "[审批超时: 写入被自动拒绝]"; }
         if ("reject".equals(ar)) { return "[审批拒绝: 写入已被管理员拒绝]"; }
+        // 批准后继续写入，成功后返回明确结果
+        String werr = writeFileString(real, content, append);
+        if (werr != null) { return "[写入失败: " + werr + "]"; }
+        takeSnapshot(path);
+        return "[已批准并写入成功] " + path;
     }
     String fullErr = snapCheckFull(path);
     if (fullErr != null) { return fullErr; }
