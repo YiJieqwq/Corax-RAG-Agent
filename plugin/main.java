@@ -2790,7 +2790,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     if (path.startsWith("/proc/") && path.contains("/cmd")) {
         Map job = (Map) delayJobs.get(Integer.parseInt(path.replace("/proc/", "").replace("/cmd", "").trim()));
-        return job != null ? String.valueOf(job.get("cmd")) : ""pid not found"";
+        return job != null ? String.valueOf(job.get("cmd")) : "pid not found";
     }
     if (path.startsWith("/proc/") && path.contains("/stdout")) {
         return vfsReadProcStdout(path);
