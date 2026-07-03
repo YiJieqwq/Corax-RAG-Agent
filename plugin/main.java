@@ -3218,7 +3218,7 @@ String vfsReadProcStatus(String path) {
             long remain = (end - now) / 1000;
             return "pending (remain: " + remain + "s, cmd: " + job.get("cmd") + ")";
         }
-        return ""pid not found"";
+        return "pid not found";
     } catch (Exception e) { return "parse error"; }
 }
 String vfsReadProcStdout(String path) {
