@@ -3667,10 +3667,15 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             pos++;
             continue;
         }
-        // 换行 = 分号
+        // 换行 = 分号（真实换行 和 字面量 \n）
         if (c == '\n' || c == '\r') {
             tokens.add(";");
             pos++;
+            continue;
+        }
+        if (c == '\\' && pos + 1 < line.length() && line.charAt(pos + 1) == 'n') {
+            tokens.add(";");
+            pos += 2;
             continue;
         }
         // 忽略 >&N stderr 重定向
