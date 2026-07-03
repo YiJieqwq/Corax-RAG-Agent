@@ -1868,7 +1868,7 @@ dumpMsgs.put(dj);
                     if (output.isEmpty()) {
                         sr.put("role", "tool");
                         sr.put("tool_call_id", tcid);
-                        sr.put("content", """");
+                        sr.put("content", "");
                         ai2Msgs.put(sr);
                     } else {
                         sr.put("role", "tool");
@@ -2022,7 +2022,7 @@ dumpMsgs.put(dj);
                             scmd = (String) qr2.get("cmd");
                             String out = shellExecLine(scmd, senderUin, peerUin, chatType);
                             if (out.isEmpty()) {
-                                out = """";
+                                out = "";
                             }
                             {
                                 String rtcid = rtc.optString("id", "rcall_" + System.currentTimeMillis());
