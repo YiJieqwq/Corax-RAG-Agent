@@ -3096,7 +3096,7 @@ String vfsReadVarLog(String path) {
     if (path.equals("/var/log/errors")) {
         return readFileString(pluginPath + "/config/error.txt");
     }
-    return "[未知日志: " + path + "]";
+    return "unknown log: " + path;
 }
 
 // ======= /dev/ =======
@@ -3121,7 +3121,7 @@ String vfsReadDev(String path, String peerUin, int chatType) {
         }
         return sb.toString().trim();
     }
-    return "[只写设备或不存在]";
+    return "write-only device";
 }
 void vfsWriteDevOut(String content, String peerUin, int chatType) {
     // 检测是否在非主线程（daemon），如果是则放入待发队列
@@ -3156,11 +3156,11 @@ String vfsReadTmp(String path) {
 }
 String vfsWriteTmp(String path, String content, boolean append) {
     if (vfsTmp.size() > 50) {
-        return "[tmp 文件数超限 50]";
+        return "tmp: file limit (50) reached";
     }
     String existing = (String) vfsTmp.get(path);
     if (existing != null && existing.length() + content.length() > 100000) {
-        return "[tmp 单文件超限 100KB]";
+        return "tmp: size limit (100KB) exceeded";
     }
     if (append && existing != null) {
         content = existing + content;
@@ -3219,7 +3219,7 @@ String vfsReadProcStatus(String path) {
             return "pending (remain: " + remain + "s, cmd: " + job.get("cmd") + ")";
         }
         return ""pid not found"";
-    } catch (Exception e) { return "[解析失败]"; }
+    } catch (Exception e) { return "parse error"; }
 }
 String vfsReadProcStdout(String path) {
     // daemon stdout 从队列读
@@ -3234,7 +3234,7 @@ String vfsReadProcStdout(String path) {
         for (int i = 0; i < q.size(); i++) sb.append(q.get(i)).append("\n");
         q.clear();
         return sb.toString().trim();
-    } catch (Exception e) { return "[解析失败]"; }
+    } catch (Exception e) { return "parse error"; }
 }
 String vfsWriteProcKill(String path) {
     try {
@@ -3247,7 +3247,7 @@ String vfsWriteProcKill(String path) {
         daemons.remove(pid);
         daemonOutputs.remove(pid);
         return null;
-    } catch (Exception e) { return "[解析失败]"; }
+    } catch (Exception e) { return "parse error"; }
 }
 
 // ======= /var/ =======
@@ -3255,7 +3255,7 @@ String vfsWriteVarDb(String sql) {
     // 仅拦截 DROP TABLE / ALTER TABLE，其余操作由快照保护
     String upper = sql.trim().toUpperCase();
     if (upper.contains("DROP") || upper.contains("ALTER")) {
-        return "[拒绝: 不允许 DROP/ALTER]";
+        return "DROP/ALTER not permitted";
     }
     // SELECT 查询：只读，无需快照
     if (upper.startsWith("SELECT") || upper.startsWith("EXPLAIN")
@@ -3295,7 +3295,7 @@ String vfsWriteVarDb(String sql) {
             c.close();
             return sb.toString().isEmpty() ? "(查询结果为空)" : sb.toString().trim();
         }
-        catch (Exception e) { return "[SQL错误: " + e.getMessage() + "]"; }
+        catch (Exception e) { return "SQL error: " + e.getMessage(); }
     }
     // 写操作：先快照，再执行
     String fullErr = snapCheckFull("/var/data.db");
@@ -3307,7 +3307,7 @@ String vfsWriteVarDb(String sql) {
         getDb().execSQL(sql);
         return null;
     }
-    catch (Exception e) { return "[SQL错误: " + e.getMessage() + "]"; }
+    catch (Exception e) { return "SQL error: " + e.getMessage(); }
 }
 
 // ======= 辅助 =======
@@ -3332,7 +3332,7 @@ String readFileString(String path) {
         while ((line = br.readLine()) != null) sb.append(line).append("\n");
         br.close();
         return sb.toString().trim();
-    } catch (Exception e) { return "[读取失败: " + e.getMessage() + "]"; }
+    } catch (Exception e) { return "read error: " + e.getMessage(); }
 }
 String writeFileString(String path, String content, boolean append) {
     try {
@@ -3351,7 +3351,7 @@ String writeFileString(String path, String content, boolean append) {
             pw.close();
         }
         return null;
-    } catch (Exception e) { return "[写入失败: " + e.getMessage() + "]"; }
+    } catch (Exception e) { return "write error: " + e.getMessage(); }
 }
 
 void snapCopyFile(File src, File dst) {
@@ -3754,7 +3754,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             // 无延时，普通后台
             final List finalTokens = new ArrayList(bgTokens);
             if (daemons.size() >= 10) {
-                return "[拒绝: daemon 数量已达上限 10，请先 kill 旧任务]";
+                return "daemon limit (10) reached";
             }
             final int p = nextDaemonPid++;
             Thread t = new Thread(new Runnable() {
@@ -4107,7 +4107,7 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
             if (werr != null) {
                 pipeIn = werr;
             } else if (outRedir.equals("/dev/out")) {
-                pipeIn = "[已发送到 /dev/out: " + (pipeIn.length() > 100 ? pipeIn.substring(0, 100) + "..." : pipeIn) + "]";
+                pipeIn = "";
             } else {
                 pipeIn = "";
             }
@@ -4171,7 +4171,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                         fis.close();
                         for (int bi = 0; bi < head.length; bi++) {
                             if (head[bi] == 0) {
-                                return "[二进制文件，不可 cat。使用 stat 查看信息]";
+                                return "binary file, use stat";
                             }
                         }
                     } catch (Exception e) { return "read error"; }
@@ -4459,7 +4459,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                         sendFile(fpu, absPath, fct);
                     }
                 });
-                return "[已投递到主线程，稍后发送]";
+                return "";
             }
             sendFile(peerUin, f.getAbsolutePath(), chatType);
             return "";
@@ -4514,7 +4514,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 }
             }
             if (rmTarget == null) {
-                return "[快照 #" + rmIdx + " 不存在]";
+                return "snapshot #" + rmIdx + " not found";
             }
             String[] rmSp = rmTarget.split("_");
             String rmDate = rmSp.length > 1 ? rmSp[1] : "?";
@@ -4576,7 +4576,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 return "用法: stat <路径>";
             }
             String content = vfsRead(path, senderUin, peerUin, chatType);
-            if (content.startsWith("[路径不存在")) { return content; }
+            if (content.startsWith("path not found: ")) { return content; }
             boolean isDir = false;
             if (content.startsWith("bin") || content.startsWith("proc") || content.startsWith("etc")) {
                 isDir = true;
