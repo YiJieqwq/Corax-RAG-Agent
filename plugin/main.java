@@ -1302,8 +1302,8 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         conn.setRequestProperty("Authorization", "Bearer " + apiKey);
         conn.setRequestProperty("Connection", "keep-alive");
         conn.setDoOutput(true);
-        conn.setConnectTimeout(8000);
-        conn.setReadTimeout(30000);
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(60000);
         JSONObject body = new JSONObject();
         body.put("model", model);
         double temp = 0.7;
