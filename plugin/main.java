@@ -1860,7 +1860,7 @@ dumpMsgs.put(dj);
 
                 String output = shellExecLine(cmd, senderUin, peerUin, chatType);
                 if (output.isEmpty()) {
-                    output = "";
+                    output = "[已执行]";
                 }
                 {
                     String tcid = tc.optString("id", "call_" + System.currentTimeMillis());
@@ -1868,7 +1868,7 @@ dumpMsgs.put(dj);
                     if (output.isEmpty()) {
                         sr.put("role", "tool");
                         sr.put("tool_call_id", tcid);
-                        sr.put("content", "");
+                        sr.put("content", "[已执行]");
                         ai2Msgs.put(sr);
                     } else {
                         sr.put("role", "tool");
@@ -2022,7 +2022,7 @@ dumpMsgs.put(dj);
                             scmd = (String) qr2.get("cmd");
                             String out = shellExecLine(scmd, senderUin, peerUin, chatType);
                             if (out.isEmpty()) {
-                                out = "";
+                                out = "[已执行]";
                             }
                             {
                                 String rtcid = rtc.optString("id", "rcall_" + System.currentTimeMillis());
@@ -2501,7 +2501,7 @@ String bingSearch(String query) {
     Map cfg = loadAiConfig();
     String apiKey = (String) cfg.get("search_api_key");
     if (apiKey == null || apiKey.isEmpty()) {
-        return "search: API key not configured";
+        return "[搜索失败: 未配置 search_api_key]";
     }
     HttpURLConnection conn = null;
     try {
@@ -2512,7 +2512,7 @@ String bingSearch(String query) {
         conn.setConnectTimeout(10000); conn.setReadTimeout(15000);
         conn.connect();
         if (conn.getResponseCode() != 200) {
-            return "search: HTTP " + conn.getResponseCode();
+            return "[搜索失败: HTTP " + conn.getResponseCode() + "]";
         }
         BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         StringBuilder resp = new StringBuilder(); String line;
@@ -2521,12 +2521,12 @@ String bingSearch(String query) {
         JSONObject jResp = new JSONObject(resp.toString());
         JSONArray results = jResp.has("webPages") ? jResp.getJSONObject("webPages").getJSONArray("value") : null;
         if (results == null || results.length() == 0) {
-            return "search: no results";
+            return "[搜索无结果]";
         }
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < Math.min(results.length(), 8); i++) out.append(i + 1).append(". ").append(results.getJSONObject(i).optString("snippet", "")).append("\n");
         return out.toString().trim();
-    } catch (Exception e) { return "search: " + e.getMessage(); }
+    } catch (Exception e) { return "[搜索异常: " + e.getMessage() + "]"; }
     finally { if (conn != null) conn.disconnect(); }
 }
 
@@ -2534,7 +2534,7 @@ String bochaSearch(String query) {
     Map cfg = loadAiConfig();
     String apiKey = (String) cfg.get("search_api_key");
     if (apiKey == null || apiKey.isEmpty()) {
-        return "search: API key not configured";
+        return "[搜索失败: 未配置 search_api_key]";
     }
     HttpURLConnection conn = null;
     try {
@@ -2550,7 +2550,7 @@ String bochaSearch(String query) {
         byte[] postData = reqBody.toString().getBytes("UTF-8");
         OutputStream os = conn.getOutputStream(); os.write(postData); os.flush(); os.close();
         if (conn.getResponseCode() != 200) {
-            return "search: HTTP " + conn.getResponseCode();
+            return "[搜索失败: HTTP " + conn.getResponseCode() + "]";
         }
         BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         StringBuilder resp = new StringBuilder(); String line;
@@ -2562,7 +2562,7 @@ String bochaSearch(String query) {
         }
         JSONArray results = jResp.has("webPages") ? jResp.getJSONObject("webPages").getJSONArray("value") : null;
         if (results == null || results.length() == 0) {
-            return "search: no results";
+            return "[搜索无结果]";
         }
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < Math.min(results.length(), 8); i++) {
@@ -2580,7 +2580,7 @@ String bochaSearch(String query) {
             out.append("\n");
         }
         return out.toString().trim();
-    } catch (Exception e) { return "search: " + e.getMessage(); }
+    } catch (Exception e) { return "[搜索异常: " + e.getMessage() + "]"; }
     finally { if (conn != null) conn.disconnect(); }
 }
 
@@ -2588,7 +2588,7 @@ String tavilySearch(String query) {
     Map cfg = loadAiConfig();
     String apiKey = (String) cfg.get("search_api_key");
     if (apiKey == null || apiKey.isEmpty()) {
-        return "search: API key not configured";
+        return "[搜索失败: 未配置 search_api_key]";
     }
     HttpURLConnection conn = null;
     try {
@@ -2606,7 +2606,7 @@ String tavilySearch(String query) {
         byte[] postData = reqBody.toString().getBytes("UTF-8");
         OutputStream os = conn.getOutputStream(); os.write(postData); os.flush(); os.close();
         if (conn.getResponseCode() != 200) {
-            return "search: HTTP " + conn.getResponseCode();
+            return "[搜索失败: HTTP " + conn.getResponseCode() + "]";
         }
         BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         StringBuilder resp = new StringBuilder(); String line;
@@ -2615,7 +2615,7 @@ String tavilySearch(String query) {
         JSONObject jResp = new JSONObject(resp.toString());
         JSONArray results = jResp.optJSONArray("results");
         if (results == null || results.length() == 0) {
-            return "search: no results";
+            return "[搜索无结果]";
         }
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < results.length(); i++) {
@@ -2632,7 +2632,7 @@ String tavilySearch(String query) {
             out.append(snippet).append("\n");
         }
         return out.toString().trim();
-    } catch (Exception e) { return "search: " + e.getMessage(); }
+    } catch (Exception e) { return "[搜索异常: " + e.getMessage() + "]"; }
     finally { if (conn != null) conn.disconnect(); }
 }
 
@@ -2642,7 +2642,7 @@ String tavilyExtract(String[] urls, int maxLen) {
     Map cfg = loadAiConfig();
     String apiKey = (String) cfg.get("search_api_key");
     if (apiKey == null || apiKey.isEmpty()) {
-        return "fetch: API key not configured";
+        return "[抓取失败: 未配置 search_api_key]";
     }
     HttpURLConnection conn = null;
     try {
@@ -2660,7 +2660,7 @@ String tavilyExtract(String[] urls, int maxLen) {
         byte[] postData = reqBody.toString().getBytes("UTF-8");
         OutputStream os = conn.getOutputStream(); os.write(postData); os.flush(); os.close();
         if (conn.getResponseCode() != 200) {
-            return "fetch: HTTP " + conn.getResponseCode();
+            return "[抓取失败: HTTP " + conn.getResponseCode() + "]";
         }
         BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         StringBuilder resp = new StringBuilder(); String line;
@@ -2670,7 +2670,7 @@ String tavilyExtract(String[] urls, int maxLen) {
         JSONArray results = jResp.optJSONArray("results");
         if (results == null || results.length() == 0) {
             String detail = jResp.optString("detail", "");
-            return "fetch: " + (detail.isEmpty() ? "no result" : detail);
+            return "[抓取失败: " + (detail.isEmpty() ? "无结果" : detail) + "]";
         }
         boolean multi = results.length() > 1;
         StringBuilder out = new StringBuilder();
@@ -2686,14 +2686,14 @@ String tavilyExtract(String[] urls, int maxLen) {
             out.append(raw).append("\n");
         }
         if (out.length() == 0) {
-            return "fetch: empty content";
+            return "[抓取失败: 内容为空]";
         }
         String result = out.toString().trim();
         if (result.length() > maxLen) {
             result = result.substring(0, maxLen);
         }
         return result;
-    } catch (Exception e) { return "fetch: " + e.getMessage(); }
+    } catch (Exception e) { return "[抓取异常: " + e.getMessage() + "]"; }
     finally { if (conn != null) conn.disconnect(); }
 }
 
@@ -2737,7 +2737,7 @@ String fetchWebContentSimple(String urlStr, int maxLen) {
         conn.setRequestProperty("User-Agent", "Mozilla/5.0");
         conn.connect();
         if (conn.getResponseCode() != 200) {
-            return "fetch: failed";
+            return "[抓取失败]";
         }
         BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
         StringBuilder sb = new StringBuilder();
@@ -2757,7 +2757,7 @@ String fetchWebContentSimple(String urlStr, int maxLen) {
             result = result.substring(0, maxLen);
         }
         return result;
-    } catch (Exception e) { return "fetch: error"; }
+    } catch (Exception e) { return "[抓取异常]"; }
     finally { if (conn != null) conn.disconnect(); }
 }
 
@@ -2790,7 +2790,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     if (path.startsWith("/proc/") && path.contains("/cmd")) {
         Map job = (Map) delayJobs.get(Integer.parseInt(path.replace("/proc/", "").replace("/cmd", "").trim()));
-        return job != null ? String.valueOf(job.get("cmd")) : "pid not found";
+        return job != null ? String.valueOf(job.get("cmd")) : "[pid 不存在]";
     }
     if (path.startsWith("/proc/") && path.contains("/stdout")) {
         return vfsReadProcStdout(path);
@@ -2809,7 +2809,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     // /var/
     if (path.equals("/var/data.db")) {
-        return "sqlite3 /var/data.db";
+        return "[SQLite: /var/data.db — 使用 sqlite3 查询]";
     }
     if (path.startsWith("/var/log/")) {
         return vfsReadVarLog(path);
@@ -2824,7 +2824,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     // /src/
     if (path.startsWith("/src/")) {
-        return "/src/: Read-only";
+        return "[拒绝: 源码不可访问]";
     }
     // /tmp/
     if (path.startsWith("/tmp/")) {
@@ -2843,7 +2843,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     if (path.equals("/etc") || path.equals("/etc/")) {
         return "admins.txt  blocked.txt  members.txt  enabled_conversations.txt  listen_sessions.txt  default_account.txt  prompt/  skills/";
     }
-    return path + ": No such file or directory";
+    return "[路径不存在: " + path + "]";
 }
 
 // VFS 写入口 — 返回 null 成功, 否则返回错误信息
@@ -2878,7 +2878,7 @@ String vfsWrite(String path, String content, boolean append, String senderUin, S
     if (path.startsWith("/var/data.db")) {
         return vfsWriteVarDb(content);
     }
-    return path + ": Read-only or not found";
+    return "[只读或不存在: " + path + "]";
 }
 
 // 路径规范化
@@ -2944,12 +2944,12 @@ String vfsReadProcSys(String path) {
 String vfsWriteProcSys(String path, String content) {
     String key = path.replace("/proc/sys/", "");
     if (key.equals("api_key") || key.equals("search_api_key")) {
-        return "api_key/search_api_key: Read-only";
+        return "[拒绝: api_key/search_api_key 不可覆写]";
     }
     String[] vk = {"model","ai_url","context_ttl","context_limit","search_provider","show_stats","debug","ai_prefix","shell_rounds","temperature","pat_wake","sewarden"};
     boolean valid = false; for (int i = 0; i < vk.length; i++) if (vk[i].equals(key)) { valid = true; break; }
     if (!valid) {
-        return key + ": invalid config key";
+        return "[无效配置键: " + key + "]";
     }
     aiConfigCache = null;
     String fullErr = snapCheckFull(path);
@@ -2978,7 +2978,7 @@ String vfsReadProcSelf(String path, String senderUin, int chatType, String peerU
         }
         return listenSessions.contains(peerUin + "_" + chatType) ? "yes" : "no";
     }
-    return path + ": unknown path";
+    return "[未知: " + path + "]";
 }
 
 // ======= /proc/prompt/ =======
@@ -3000,7 +3000,7 @@ String vfsReadProcPrompt(String path) {
         }
         return sb.toString().trim();
     }
-    return path + ": unknown path";
+    return "[未知: " + path + "]";
 }
 String vfsWritePromptActive(String content) {
     String target = content.trim();
@@ -3013,7 +3013,7 @@ String vfsWritePromptActive(String content) {
         }
     }
     if (!found) {
-        return target + ": persona not found";
+        return "[人设不存在: " + target + "]";
     }
     if (target.equals(getActivePersona())) {
         return null;
@@ -3049,7 +3049,7 @@ String vfsReadEtc(String path) {
 String vfsWriteEtc(String path, String content, boolean append, String senderUin, String peerUin, int chatType) {
     String real = vfsMapEtcPath(path);
     if (!new File(real).exists()) {
-        return "Read-only: cannot create new files under /etc/";
+        return "[只读: 系统路径不允许新建文件, 只能修改已有配置]";
     }
     // 安全文件写入需审批
     if (path.equals("/etc/admins.txt") || path.equals("/etc/blocked.txt")
@@ -3058,13 +3058,13 @@ String vfsWriteEtc(String path, String content, boolean append, String senderUin
         String appKey = senderUin + "_" + peerUin + "_" + path + "_" + System.currentTimeMillis();
         String desc = "写入 " + path + " (" + (content.length() > 50 ? content.substring(0, 50) + "..." : content) + ")";
         String ar = waitForApproval(appKey, desc, peerUin, chatType, 30);
-        if ("timeout".equals(ar)) { return "approval timed out, write rejected"; }
-        if ("reject".equals(ar)) { return "approval rejected by admin"; }
+        if ("timeout".equals(ar)) { return "[审批超时: 写入被自动拒绝]"; }
+        if ("reject".equals(ar)) { return "[审批拒绝: 写入已被管理员拒绝]"; }
         // 批准后继续写入，成功后返回明确结果
         String werr = writeFileString(real, content, append);
-        if (werr != null) { return "write error: " + werr; }
+        if (werr != null) { return "[写入失败: " + werr + "]"; }
         takeSnapshot(path);
-        return "";
+        return "[已批准并写入成功] " + path;
     }
     String fullErr = snapCheckFull(path);
     if (fullErr != null) { return fullErr; }
@@ -3096,7 +3096,7 @@ String vfsReadVarLog(String path) {
     if (path.equals("/var/log/errors")) {
         return readFileString(pluginPath + "/config/error.txt");
     }
-    return "unknown log: " + path;
+    return "[未知日志: " + path + "]";
 }
 
 // ======= /dev/ =======
@@ -3121,7 +3121,7 @@ String vfsReadDev(String path, String peerUin, int chatType) {
         }
         return sb.toString().trim();
     }
-    return "write-only device";
+    return "[只写设备或不存在]";
 }
 void vfsWriteDevOut(String content, String peerUin, int chatType) {
     // 检测是否在非主线程（daemon），如果是则放入待发队列
@@ -3156,11 +3156,11 @@ String vfsReadTmp(String path) {
 }
 String vfsWriteTmp(String path, String content, boolean append) {
     if (vfsTmp.size() > 50) {
-        return "tmp: file limit (50) reached";
+        return "[tmp 文件数超限 50]";
     }
     String existing = (String) vfsTmp.get(path);
     if (existing != null && existing.length() + content.length() > 100000) {
-        return "tmp: size limit (100KB) exceeded";
+        return "[tmp 单文件超限 100KB]";
     }
     if (append && existing != null) {
         content = existing + content;
@@ -3218,8 +3218,8 @@ String vfsReadProcStatus(String path) {
             long remain = (end - now) / 1000;
             return "pending (remain: " + remain + "s, cmd: " + job.get("cmd") + ")";
         }
-        return "pid not found";
-    } catch (Exception e) { return "parse error"; }
+        return "[pid 不存在]";
+    } catch (Exception e) { return "[解析失败]"; }
 }
 String vfsReadProcStdout(String path) {
     // daemon stdout 从队列读
@@ -3234,7 +3234,7 @@ String vfsReadProcStdout(String path) {
         for (int i = 0; i < q.size(); i++) sb.append(q.get(i)).append("\n");
         q.clear();
         return sb.toString().trim();
-    } catch (Exception e) { return "parse error"; }
+    } catch (Exception e) { return "[解析失败]"; }
 }
 String vfsWriteProcKill(String path) {
     try {
@@ -3247,7 +3247,7 @@ String vfsWriteProcKill(String path) {
         daemons.remove(pid);
         daemonOutputs.remove(pid);
         return null;
-    } catch (Exception e) { return "parse error"; }
+    } catch (Exception e) { return "[解析失败]"; }
 }
 
 // ======= /var/ =======
@@ -3255,7 +3255,7 @@ String vfsWriteVarDb(String sql) {
     // 仅拦截 DROP TABLE / ALTER TABLE，其余操作由快照保护
     String upper = sql.trim().toUpperCase();
     if (upper.contains("DROP") || upper.contains("ALTER")) {
-        return "DROP/ALTER not permitted";
+        return "[拒绝: 不允许 DROP/ALTER]";
     }
     // SELECT 查询：只读，无需快照
     if (upper.startsWith("SELECT") || upper.startsWith("EXPLAIN")
@@ -3295,7 +3295,7 @@ String vfsWriteVarDb(String sql) {
             c.close();
             return sb.toString().isEmpty() ? "(查询结果为空)" : sb.toString().trim();
         }
-        catch (Exception e) { return "SQL error: " + e.getMessage(); }
+        catch (Exception e) { return "[SQL错误: " + e.getMessage() + "]"; }
     }
     // 写操作：先快照，再执行
     String fullErr = snapCheckFull("/var/data.db");
@@ -3307,7 +3307,7 @@ String vfsWriteVarDb(String sql) {
         getDb().execSQL(sql);
         return null;
     }
-    catch (Exception e) { return "SQL error: " + e.getMessage(); }
+    catch (Exception e) { return "[SQL错误: " + e.getMessage() + "]"; }
 }
 
 // ======= 辅助 =======
@@ -3315,7 +3315,7 @@ String readFileString(String path) {
     try {
         File f = new File(path);
         if (!f.exists()) {
-            return "(file not found)";
+            return "(文件不存在)";
         }
         if (f.isDirectory()) {
             String[] files = f.list();
@@ -3332,7 +3332,7 @@ String readFileString(String path) {
         while ((line = br.readLine()) != null) sb.append(line).append("\n");
         br.close();
         return sb.toString().trim();
-    } catch (Exception e) { return "read error: " + e.getMessage(); }
+    } catch (Exception e) { return "[读取失败: " + e.getMessage() + "]"; }
 }
 String writeFileString(String path, String content, boolean append) {
     try {
@@ -3351,7 +3351,7 @@ String writeFileString(String path, String content, boolean append) {
             pw.close();
         }
         return null;
-    } catch (Exception e) { return "write error: " + e.getMessage(); }
+    } catch (Exception e) { return "[写入失败: " + e.getMessage() + "]"; }
 }
 
 void snapCopyFile(File src, File dst) {
@@ -3424,7 +3424,7 @@ String snapCurrentContent(String vpath) {
         if (!f.exists()) {
             return "";
         }
-        return "[binary snapshot]";
+        return "[snapshot-binary]";
     }
     if (vpath.startsWith("/etc/")) {
         String real = vfsMapEtcPath(vpath);
@@ -3453,7 +3453,7 @@ String snapCheckFull(String vpath) {
     if (dir.exists()) {
         String[] files = dir.list();
         if (files != null && files.length >= 10) {
-            return vpath + ": snapshot limit (10) reached, delete old ones first";
+            return "[快照已满: " + vpath + " 已达 10 个上限，请先 corax-snapshot-rm 删除旧快照]";
         }
     }
     return null;
@@ -3501,11 +3501,11 @@ void takeSnapshot(String vpath) {
 String listSnapshots(String vpath) {
     File dir = new File(snapDir(vpath));
     if (!dir.exists() || !dir.isDirectory()) {
-        return "(no snapshots)";
+        return "(无快照)";
     }
     String[] files = dir.list();
     if (files == null || files.length == 0) {
-        return "(no snapshots)";
+        return "(无快照)";
     }
     // 按数字索引排序（非字典序）
     for (int a = 0; a < files.length; a++) {
@@ -3536,11 +3536,11 @@ String listSnapshots(String vpath) {
 String restoreSnapshot(String vpath, int snapIdx) {
     File dir = new File(snapDir(vpath));
     if (!dir.exists()) {
-        return "snapshot not found";
+        return "[快照不存在]";
     }
     String[] files = dir.list();
     if (files == null) {
-        return "snapshot not found";
+        return "[快照不存在]";
     }
     String target = null;
     for (int i = 0; i < files.length; i++) {
@@ -3550,7 +3550,7 @@ String restoreSnapshot(String vpath, int snapIdx) {
         }
     }
     if (target == null) {
-        return "snapshot #" + snapIdx + " not found";
+        return "[快照 #" + snapIdx + " 不存在]";
     }
     // 恢复前先保存当前状态，以防恢复错误可撤销
     // 如果满 10 个，先删最旧的腾空间
@@ -3599,7 +3599,7 @@ String restoreSnapshot(String vpath, int snapIdx) {
         saveAiConfig(cfg);
         return null;
     }
-    return vpath + ": restore not supported";
+    return "[不支持的恢复路径: " + vpath + "]";
 }
 
 // ==================== Corax-Shell 执行器 ====================
@@ -3754,7 +3754,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             // 无延时，普通后台
             final List finalTokens = new ArrayList(bgTokens);
             if (daemons.size() >= 10) {
-                return "daemon limit (10) reached";
+                return "[拒绝: daemon 数量已达上限 10，请先 kill 旧任务]";
             }
             final int p = nextDaemonPid++;
             Thread t = new Thread(new Runnable() {
@@ -4107,7 +4107,7 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
             if (werr != null) {
                 pipeIn = werr;
             } else if (outRedir.equals("/dev/out")) {
-                pipeIn = "";
+                pipeIn = "[已发送到 /dev/out: " + (pipeIn.length() > 100 ? pipeIn.substring(0, 100) + "..." : pipeIn) + "]";
             } else {
                 pipeIn = "";
             }
@@ -4171,10 +4171,10 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                         fis.close();
                         for (int bi = 0; bi < head.length; bi++) {
                             if (head[bi] == 0) {
-                                return "binary file, use stat";
+                                return "[二进制文件，不可 cat。使用 stat 查看信息]";
                             }
                         }
-                    } catch (Exception e) { return "read error"; }
+                    } catch (Exception e) { return "[读取失败]"; }
                 }
             }
             return vfsRead(path, senderUin, peerUin, chatType);
@@ -4448,7 +4448,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 }
             }
             if (!f.exists()) {
-                return "No such file: " + filePath;
+                return "文件不存在: " + filePath;
             }
             if (onMainThread == 0) {
                 final String absPath = f.getAbsolutePath();
@@ -4459,10 +4459,10 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                         sendFile(fpu, absPath, fct);
                     }
                 });
-                return "";
+                return "[已投递到主线程，稍后发送]";
             }
             sendFile(peerUin, f.getAbsolutePath(), chatType);
-            return "";
+            return "已发送: " + f.getName();
         }
         if (cmd.equals("corax-reboot")) {
             if (args.length < 1) {
@@ -4500,11 +4500,11 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             String rmPath = args[0];
             File rmSnapDir = new File(snapDir(rmPath));
             if (!rmSnapDir.exists()) {
-                return "snapshot not found";
+                return "[快照不存在]";
             }
             String[] rmFiles = rmSnapDir.list();
             if (rmFiles == null) {
-                return "snapshot not found";
+                return "[快照不存在]";
             }
             String rmTarget = null;
             for (int fi = 0; fi < rmFiles.length; fi++) {
@@ -4514,7 +4514,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 }
             }
             if (rmTarget == null) {
-                return "snapshot #" + rmIdx + " not found";
+                return "[快照 #" + rmIdx + " 不存在]";
             }
             String[] rmSp = rmTarget.split("_");
             String rmDate = rmSp.length > 1 ? rmSp[1] : "?";
@@ -4576,7 +4576,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 return "用法: stat <路径>";
             }
             String content = vfsRead(path, senderUin, peerUin, chatType);
-            if (content.startsWith("path not found: ")) { return content; }
+            if (content.startsWith("[路径不存在")) { return content; }
             boolean isDir = false;
             if (content.startsWith("bin") || content.startsWith("proc") || content.startsWith("etc")) {
                 isDir = true;
@@ -4754,7 +4754,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                 + "文件系统: /proc/ /etc/ /dev/ /ctx/ /var/ /tmp/ /persist/ /src/\n"
                 + "查阅 /persist/DevDocs.md 了解项目架构";
         }
-        return cmd + ": command not found. Try corax-help";
+        return cmd + ": 命令不存在。查看可用命令: corax-help";
     } catch (Exception e) {
         return cmd + ": " + e.getMessage();
     }
@@ -4762,7 +4762,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
 
 String formatMemList(List results, boolean isPublic) {
     if (results == null || results.isEmpty()) {
-        return "(empty)";
+        return "(无)";
     }
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < results.size(); i++) {
