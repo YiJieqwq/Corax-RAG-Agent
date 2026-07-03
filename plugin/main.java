@@ -3631,9 +3631,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             pos++;
             continue;
         }
-        // 注释 / heredoc 终止符：忽略到行尾
-        if (c == '#' || (c == '<' && pos + 1 < line.length() && line.charAt(pos + 1) == '<')) {
-            if (c == '<') { pos++; }
+        if (c == '#') {
             break;
         }
         // 后台
@@ -3684,6 +3682,11 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
         // 重定向
         if (c == '>' && pos + 1 < line.length() && line.charAt(pos + 1) == '>') {
             tokens.add(">>");
+            pos += 2;
+            continue;
+        }
+        if (c == '<' && pos + 1 < line.length() && line.charAt(pos + 1) == '<') {
+            tokens.add("<<");
             pos += 2;
             continue;
         }
@@ -4011,6 +4014,22 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
                 }
                 continue;
             }
+            if (t.equals("<<")) {
+                idx[0]++;
+                if (idx[0] < tokens.size()) {
+                    String delim = (String) tokens.get(idx[0]++);
+                    StringBuilder hd = new StringBuilder();
+                    while (idx[0] < tokens.size()) {
+                        String tk = (String) tokens.get(idx[0]);
+                        if (tk.equals(delim)) { idx[0]++; break; }
+                        if (hd.length() > 0) { hd.append("\n"); }
+                        hd.append(tk);
+                        idx[0]++;
+                    }
+                    pipeIn = hd.toString();
+                }
+                continue;
+            }
             if (t.equals("<")) {
                 idx[0]++;
                 if (idx[0] < tokens.size()) {
@@ -4030,6 +4049,22 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
                 outAppend = true;
                 if (idx[0] < tokens.size()) {
                     outRedir = (String) tokens.get(idx[0]++);
+                }
+                continue;
+            }
+            if (t.equals("<<")) {
+                idx[0]++;
+                if (idx[0] < tokens.size()) {
+                    String delim = (String) tokens.get(idx[0]++);
+                    StringBuilder hd = new StringBuilder();
+                    while (idx[0] < tokens.size()) {
+                        String tk = (String) tokens.get(idx[0]);
+                        if (tk.equals(delim)) { idx[0]++; break; }
+                        if (hd.length() > 0) { hd.append("\n"); }
+                        hd.append(tk);
+                        idx[0]++;
+                    }
+                    pipeIn = hd.toString();
                 }
                 continue;
             }
