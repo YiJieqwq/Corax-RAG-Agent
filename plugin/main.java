@@ -2832,7 +2832,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     // directories
     if (path.equals("/bin") || path.equals("/bin/")) {
-        return "touch rm mkdir chmod find sort uniq cut sed corax-edit corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm stat corax-help";
+        return "touch rm mkdir chmod find sort uniq cut sed corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm stat corax-help";
     }
     if (path.equals("/")) {
         return "bin/  proc/  etc/  dev/  ctx/  var/  src/  tmp/  persist/  usr/";
@@ -4253,41 +4253,6 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             String err = vfsWrite(filePath, content, false, senderUin, peerUin, chatType);
             return err != null ? err : "替换完成";
         }
-        if (cmd.equals("corax-edit")) {
-            if (args.length < 3) {
-                return "用法: corax-edit <文件路径> <旧文本> --- <新文本>";
-            }
-            String filePath = args[0];
-            StringBuilder oldB = new StringBuilder(); StringBuilder newB = new StringBuilder();
-            boolean sepReached = false;
-            for (int i = 1; i < args.length; i++) {
-                if (!sepReached && args[i].equals("---")) {
-                    sepReached = true;
-                    continue;
-                }
-                if (!sepReached) {
-                    if (oldB.length() > 0) {
-                        oldB.append(" ");
-                    }
-                    oldB.append(args[i]);
-                }
-                else { if (newB.length() > 0) newB.append(" "); newB.append(args[i]); }
-            }
-            if (!sepReached) {
-                return "用法: corax-edit <路径> <旧文本> --- <新文本>";
-            }
-            String content = vfsRead(filePath, senderUin, peerUin, chatType);
-            if (content.startsWith("(") || content.startsWith("[")) {
-                return "编辑: " + content;
-            }
-            String oldS = oldB.toString(); String newS = newB.toString();
-            if (!content.contains(oldS)) {
-                return "未找到匹配文本";
-            }
-            content = content.replace(oldS, newS);
-            String err = vfsWrite(filePath, content, false, senderUin, peerUin, chatType);
-            return err != null ? err : "已替换 1 处";
-        }
         if (cmd.equals("tr")) {
             if (args.length < 2 || stdin.isEmpty()) { return stdin; }
             String from = args[0]; String to = args.length > 1 ? args[1] : "";
@@ -4742,7 +4707,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
         if (cmd.equals("corax-help")) {
             return "Corax-Shell v5.1.1\n\n"
                 + "内置命令: ls cat echo grep wc head tail date sleep\n"
-                + "Corax命令: sed corax-edit corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm\n"
+                + "Corax命令: sed corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm\n"
                 + "管道/重定向: | > >> &\n"
                 + "文件系统: /proc/ /etc/ /dev/ /ctx/ /var/ /tmp/ /persist/ /src/\n"
                 + "查阅 /persist/DevDocs.md 了解项目架构";
