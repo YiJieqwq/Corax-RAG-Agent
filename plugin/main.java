@@ -1101,7 +1101,7 @@ List getAiContext(String peerUin, int chatType) {
         Map last = (Map) ctx.get(ctx.size() - 1);
         Long ts = (Long) last.get("_ts");
         if (ts != null && (now - ts) > ttl) {
-            this.log("error.txt", "TTL: 删除过期上下文 " + key + " ts=" + ts + " ttl=" + ttl);
+            debugLog("TTL", "删除过期上下文 " + key + " ts=" + ts + " ttl=" + ttl);
             aiContexts.remove(key);
             ctx = null;
         }
@@ -1137,7 +1137,7 @@ List getAiContext(String peerUin, int chatType) {
                 }
                 if (!ctx.isEmpty()) {
                     Map last = (Map) ctx.get(ctx.size() - 1);
-                    this.log("error.txt", "loadCtx: " + key + " loaded " + ctx.size() + " msgs from disk");
+                    debugLog("loadCtx", key + " loaded " + ctx.size() + " msgs from disk");
                     Long ts = (Long) last.get("_ts");
                     if (ttl > 0 && ts != null && (now - ts) > ttl) {
                         ctx = new ArrayList();
@@ -4789,7 +4789,14 @@ Map stripQuietFlag(String cmd) {
     return result;
 }
 
-void sendDebug(String peerUin, int chatType, String text) { try { sendMsg(peerUin, "[DEBUG] " + text, chatType); } catch (Exception e) { } }
+void sendDebug(String peerUin, int chatType, String text) {
+    if (!"1".equals(getAiConfig("debug"))) { return; }
+    try { sendMsg(peerUin, "[DEBUG] " + text, chatType); } catch (Exception e) { }
+}
+void debugLog(String tag, String msg) {
+    if (!"1".equals(getAiConfig("debug"))) { return; }
+    this.log("error.txt", tag + ": " + msg);
+}
 
 String listenLogPath(String peerUin, int chatType) {
     File dir = new File(pluginPath + "/config/listen_logs");
