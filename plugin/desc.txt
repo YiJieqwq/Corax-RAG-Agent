@@ -1,4 +1,4 @@
-🦅 墨鸦-Strata v5.1.0 (C-VFS) 🦅
+🦅 墨鸦-Strata v5.1.1 (C-VFS) 🦅
 
 RAG增强检索 + Corax-Shell 虚拟机工作区，为您的 QFun 环境提供生产级 AI 助手。
 
@@ -31,7 +31,7 @@ ai_prefix = 1（AI 消息强制 [AI] 前缀）
 shell_rounds = 8（最大搜索轮次，搜索N轮+最终回答）
 sewarden = 1（WARDEN增强防护，不建议关闭）
 
-近期更新（v5.1.0）：
+近期更新（v5.1.1）：
 - Corax-Shell 虚拟文件系统：AI 拥有 /proc /etc /dev /persist /var /tmp，管道|重定向|后台
 - 快照审批：删除快照/写入安全文件需管理员 /ai operation permit 批准，30s超时拒绝
 - 熔断器：消息刷屏自动停止 60s

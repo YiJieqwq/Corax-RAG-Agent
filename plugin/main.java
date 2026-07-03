@@ -4740,7 +4740,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             return sb.toString().trim();
         }
         if (cmd.equals("corax-help")) {
-            return "Corax-Shell v5.1.0\n\n"
+            return "Corax-Shell v5.1.1\n\n"
                 + "内置命令: ls cat echo grep wc head tail date sleep\n"
                 + "Corax命令: sed corax-edit corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm\n"
                 + "管道/重定向: | > >> &\n"
@@ -6090,7 +6090,7 @@ public void onMsg(Object msg) {
 }
 
 /*
- *  墨鸦 Strata v5.1.0
+ *  墨鸦 Strata v5.1.1
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
  *  Author:  YiJieqwq异界
