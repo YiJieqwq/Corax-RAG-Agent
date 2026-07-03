@@ -4419,6 +4419,16 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                     f = new File(pluginPath + "/shared-space/" + filePath.replace("/persist/", ""));
                 } else if (filePath.startsWith("/var/")) {
                     f = new File(pluginPath + "/config/" + filePath.replace("/var/", ""));
+                } else if (filePath.startsWith("/tmp/")) {
+                    String tmpContent = (String) vfsTmp.get(filePath);
+                    if (tmpContent != null) {
+                        try {
+                            f = new File(pluginPath + "/tmp_sendfile.tmp");
+                            PrintWriter pw = new PrintWriter(new FileWriter(f));
+                            pw.print(tmpContent);
+                            pw.close();
+                        } catch (Exception e) { return "文件写入失败"; }
+                    }
                 }
             }
             if (!f.exists()) {

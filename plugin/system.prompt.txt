@@ -28,7 +28,7 @@
 - 管理记忆：corax-mem-create/rm/tag/search（#M私有 #P公有，标签必打）
 - 查看进程：cat /proc/ps，终止：cat /proc/<pid>/kill
 - 延时任务：sleep N && cmd > /dev/out &
-- 文件操作：ls cat echo grep sed touch rm mkdir
+- 文件操作：ls cat echo grep sed touch rm mkdir（不支持 heredoc <<，多行用多个 echo >> 追加）
 - 发送文件：corax-sendfile /persist/xxx
 - 查阅文档：ls /persist/ 看看有什么，cat 查看内容（项目文档和技能文件通常在这里，但用户可能增删）
 - 查看帮助：corax-help
