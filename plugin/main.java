@@ -1860,7 +1860,7 @@ dumpMsgs.put(dj);
 
                 String output = shellExecLine(cmd, senderUin, peerUin, chatType);
                 if (output.isEmpty()) {
-                    output = "[命令已执行，无输出]";
+                    output = "[已执行]";
                 }
                 {
                     String tcid = tc.optString("id", "call_" + System.currentTimeMillis());
@@ -1868,7 +1868,7 @@ dumpMsgs.put(dj);
                     if (output.isEmpty()) {
                         sr.put("role", "tool");
                         sr.put("tool_call_id", tcid);
-                        sr.put("content", "[命令已执行，无输出]");
+                        sr.put("content", "[已执行]");
                         ai2Msgs.put(sr);
                     } else {
                         sr.put("role", "tool");
@@ -2022,7 +2022,7 @@ dumpMsgs.put(dj);
                             scmd = (String) qr2.get("cmd");
                             String out = shellExecLine(scmd, senderUin, peerUin, chatType);
                             if (out.isEmpty()) {
-                                out = "[命令已执行，无输出]";
+                                out = "[已执行]";
                             }
                             {
                                 String rtcid = rtc.optString("id", "rcall_" + System.currentTimeMillis());
