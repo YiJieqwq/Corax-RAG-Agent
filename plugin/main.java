@@ -36,6 +36,7 @@ static long wakeWordsFileMtime = 0;
 
 static Timer delayTimer = null;
 static boolean aiProcessing = false;
+static long aiProcessingSince = 0;
 static long lastSendMs = 0;
 static int rapidSendCount = 0;
 static boolean breakerTripped = false;
@@ -1301,8 +1302,8 @@ Map callAI(String configPrefix, String systemPrompt, JSONArray messages, int max
         conn.setRequestProperty("Authorization", "Bearer " + apiKey);
         conn.setRequestProperty("Connection", "keep-alive");
         conn.setDoOutput(true);
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(15000);
+        conn.setConnectTimeout(8000);
+        conn.setReadTimeout(30000);
         JSONObject body = new JSONObject();
         body.put("model", model);
         double temp = 0.7;
@@ -1636,6 +1637,7 @@ dumpMsgs.put(dj);
     }
 
     aiProcessing = true;
+    aiProcessingSince = System.currentTimeMillis();
 
     JSONArray ai2Tools = buildAI2Tools();
     JSONArray ai2Msgs = new JSONArray();
@@ -2078,6 +2080,7 @@ dumpMsgs.put(dj);
     } finally {
         try { saveCtxToDisk(peerUin, chatType, ctx); } catch (Exception e) {}
         aiProcessing = false;
+        aiProcessingSince = 0;
         processQueue();
     }
 }
@@ -4922,6 +4925,7 @@ String readListenLogForPrompt(String peerUin, int chatType, int maxChars) {
 
 void handleListenSummary(Object msg) {
     aiProcessing = true;
+    aiProcessingSince = System.currentTimeMillis();
     try {
     String senderUin = String.valueOf(msg.userUin);
     String role = getRole(senderUin);
@@ -5679,6 +5683,14 @@ public void onMsg(Object msg) {
         daemonOutQueue.clear(); // 清空剩余;
     }
     
+    // aiProcessing 看门狗：超 120s 强制释放
+    if (aiProcessing && System.currentTimeMillis() - aiProcessingSince > 120000) {
+        aiProcessing = false;
+        aiProcessingSince = 0;
+        msgQueue.clear();
+        this.log("error.txt", "watchdog: aiProcessing timeout reset");
+    }
+
     // 操作审批 + 等待审批状态
     // 消息队列：正在处理消息时缓存新消息，但优先处理审批指令
     if (aiProcessing) {
