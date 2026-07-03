@@ -3665,6 +3665,12 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             pos++;
             continue;
         }
+        // 换行 = 分号
+        if (c == '\n' || c == '\r') {
+            tokens.add(";");
+            pos++;
+            continue;
+        }
         // 忽略 >&N stderr 重定向
         if (c == '>' && pos + 1 < line.length() && line.charAt(pos + 1) == '&') {
             pos += 2;
