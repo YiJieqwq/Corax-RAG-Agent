@@ -1860,7 +1860,7 @@ dumpMsgs.put(dj);
 
                 String output = shellExecLine(cmd, senderUin, peerUin, chatType);
                 if (output.isEmpty()) {
-                    output = """";
+                    output = "";
                 }
                 {
                     String tcid = tc.optString("id", "call_" + System.currentTimeMillis());
