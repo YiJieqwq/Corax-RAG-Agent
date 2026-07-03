@@ -3631,8 +3631,9 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             pos++;
             continue;
         }
-        // 注释
-        if (c == '#') {
+        // 注释 / heredoc 终止符：忽略到行尾
+        if (c == '#' || (c == '<' && pos + 1 < line.length() && line.charAt(pos + 1) == '<')) {
+            if (c == '<') { pos++; }
             break;
         }
         // 后台
@@ -4397,7 +4398,8 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                     String tmpContent = (String) vfsTmp.get(filePath);
                     if (tmpContent != null) {
                         try {
-                            f = new File(pluginPath + "/tmp_sendfile.tmp");
+                            String tmpName = filePath.substring(filePath.lastIndexOf("/") + 1);
+                            f = new File(pluginPath + "/" + tmpName);
                             PrintWriter pw = new PrintWriter(new FileWriter(f));
                             pw.print(tmpContent);
                             pw.close();
