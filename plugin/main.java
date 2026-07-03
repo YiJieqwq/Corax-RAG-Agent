@@ -5620,7 +5620,18 @@ public void onMsg(Object msg) {
                 String dsu = (String) dtask.get("su");
                 String dpu = (String) dtask.get("pu");
                 int dct = Integer.parseInt(String.valueOf(dtask.get("ct")));
-                try { parseSequence(dtoks, ix, "", dsu, dpu, dct); } catch (Exception e) {}
+                try {
+                    final List fdtoks = new ArrayList(dtoks);
+                    final String fdsu = dsu;
+                    final String fdpu = dpu;
+                    final int fdct = dct;
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        public void run() {
+                            int[] ix = new int[]{0};
+                            try { parseSequence(fdtoks, ix, "", fdsu, fdpu, fdct); } catch (Exception e) {}
+                        }
+                    });
+                } catch (Exception e) {}
                 delayedTasks.remove(di);
                 di--;
             }
