@@ -5534,12 +5534,6 @@ public void onDestroy() {
     }
     aiContexts.clear();
     closeSharedDb();
-    // 清理临时文件
-    File tmpDir = new File(pluginPath + "/tmp");
-    if (tmpDir.exists()) {
-        File[] tmpFiles = tmpDir.listFiles();
-        if (tmpFiles != null) for (int i = 0; i < tmpFiles.length; i++) tmpFiles[i].delete();
-    }
 }
 
 // ==================== 拍一拍 ====================
@@ -5734,6 +5728,16 @@ public void onMsg(Object msg) {
     // SEWarden: 清洗用户输入中的系统标签
     trimmed = sewardenClean(trimmed);
 
+    if (trimmed.startsWith("/ai tmp clear")) {
+        vfsTmp.clear();
+        File tmpd = new File(pluginPath + "/tmp");
+        if (tmpd.exists()) {
+            File[] fs = tmpd.listFiles();
+            if (fs != null) for (int i = 0; i < fs.length; i++) fs[i].delete();
+        }
+        sendStyledHeader(msg, "INFO", "tmp 已清空");
+        return;
+    }
     if (trimmed.startsWith("/ai operation")) {
         if (trimmed.equals("/ai operation permit")) { handleOperationApproval(msg, true); }
         else if (trimmed.equals("/ai operation reject")) { handleOperationApproval(msg, false); }
