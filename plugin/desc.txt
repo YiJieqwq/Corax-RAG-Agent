@@ -1,8 +1,11 @@
 🦅 墨鸦-Strata v5.1.1 (C-VFS) 🦅
 
 RAG增强检索 + Corax-Shell 虚拟机工作区，为您的 QFun 环境提供生产级 AI 助手。
+鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
 
 项目: https://github.com/YiJieqwq/Corax-RAG-Agent
+
+⚠️ 4.x → 5.x 迁移警告：完全重写核心架构，不保留任何旧版本文件（ctx、data.db、config 等），请全新安装。
 
 初次使用：
 /ai on — 启用当前会话 AI
@@ -20,23 +23,30 @@ RAG增强检索 + Corax-Shell 虚拟机工作区，为您的 QFun 环境提供�
 /ai reboot <人设名> — 切换人设
 /ai listen <on|off|summary> — 监听模式
 /ai tmp clear — 清理临时文件
-/ai operation permit/reject — 审批操作（快照删除/安全文件写入）
-/whoami — 查看当前身份和权限
+/ai operation permit/reject — 审批操作
+/whoami — 查看身份和权限
 /help — 帮助
 
 配置默认值：
 model = deepseek-v4-flash
 ai_url = https://api.deepseek.com
-context_limit = 200（保留最近N轮对话）
-context_ttl = 0（不限制）
+context_limit = 200（保留最近N轮完整对话）
+context_ttl = 0（不限制，设分钟数则超时清空）
 temperature = 0.7
 search_provider = tavily
-shell_rounds = 8
+shell_rounds = 8（最大搜索轮次）
 debug = 0
 
 v5.1.1 特性：
-- Corax-Shell 虚拟文件系统: /proc /etc /dev /persist /tmp /var, 管道|重定向|heredoc
-- 审批系统: 安全文件写入/快照删除需 /ai operation permit, 30s 超时
-- 快照: 写操作前自动保存旧版本, corax-snapshot-list/restore/rm
+- Corax-Shell 虚拟文件系统: /proc /etc /dev /persist /tmp /var, 管道|重定向|heredoc <<
+- 审批系统: 安全文件写入/快照删除需 /ai operation permit, 30s 超时自动拒绝
+- 快照管理: corax-snapshot-list/restore/rm
 - 熔断器: 刷屏自动停止 60s
 - P2/P2.5 Reviewer 审查通过: 3 Critical + 4 High 修复
+
+核心技术：
+Strata — 热冷分层记忆 (#M/#P)
+CAST — 三段式权限 (OWNER > ADMIN > MEMBER)
+WARDEN — 三层身份隔离
+STREAM — 稳定上下文 + <listen>/<wake>
+DREX — 注入 → tool_calls 分流执行器
