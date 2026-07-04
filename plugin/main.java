@@ -1747,6 +1747,17 @@ dumpMsgs.put(dj);
             }
         }
         ai2Msgs = cleanMsgs;
+        // 尾部悬空 assistant+tool_calls（有 tool_calls 但无后续 tool 结果）→ 移除
+        if (pendingTC > 0) {
+            for (int ri = cleanMsgs.length() - 1; ri >= 0; ri--) {
+                JSONObject rj = cleanMsgs.getJSONObject(ri);
+                if ("assistant".equals(rj.optString("role", "")) && rj.has("tool_calls")) {
+                    cleanMsgs.remove(ri);
+                    break;
+                }
+            }
+            ai2Msgs = cleanMsgs;
+        }
     }
 
     // === 集中构建系统上下文（合并为一条消息） ===
