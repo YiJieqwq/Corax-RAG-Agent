@@ -2894,7 +2894,12 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     // directories
     if (path.equals("/bin") || path.equals("/bin/")) {
-        return "ls cat echo grep wc head tail date sleep touch rm mkdir stat ps mount sed sort uniq cut tr awk tee cp mv find chmod corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm stat corax-sendfile corax-help";
+        return "ls cat echo grep wc head tail date sleep touch rm mkdir stat ps mount "
+            + "sed sort uniq cut tr awk tee cp mv find chmod "
+            + "corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search "
+            + "corax-search corax-fetch corax-listen corax-reboot "
+            + "corax-snapshot-list corax-snapshot-restore corax-snapshot-rm "
+            + "stat corax-sendfile corax-help";
     }
     if (path.equals("/")) {
         return "bin/  proc/  etc/  dev/  ctx/  var/  src/  tmp/  persist/  usr/";
@@ -4823,7 +4828,7 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
             return sb.toString().trim();
         }
         if (cmd.equals("corax-help")) {
-            return "Corax-Shell v5.1.1\n\n"
+            return "Corax-Shell v5.2.2\n\n"
                 + "内置: ls cat echo grep wc head tail date sleep touch rm mkdir stat ps mount\n"
                 + "文本: sed sort uniq cut tr awk tee\n"
                 + "文件: cp mv find chmod\n"
@@ -5971,7 +5976,7 @@ public void onMsg(Object msg) {
     if (cmd.equals("/help")) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
-        h.append("墨鸦 Strata v5.1.1\n\n/ai <内容> — 对话\n/ai on/off/status — 会话开关\n/ai set <key> <value> — 配置\n/ai clear — 清空上下文\n/ai dumpctx — 导出上下文\n/ai memory — 记忆管理\n/ai reboot — 切换人设\n/ai listen — 监听模式\n/ai tmp clear — 清理临时文件\n/whoami — 查看身份");
+        h.append("墨鸦 Strata v5.2.2\n\n/ai <内容> — 对话\n/ai on/off/status — 会话开关\n/ai set <key> <value> — 配置\n/ai clear — 清空上下文\n/ai dumpctx — 导出上下文\n/ai memory — 记忆管理\n/ai reboot — 切换人设\n/ai listen — 监听模式\n/ai tmp clear — 清理临时文件\n/whoami — 查看身份");
         if (role.equals("ADMIN") || role.equals("OWNER")) {
             h.append("\n/admin <@> /member <@> /block <@>");
         }
@@ -6116,7 +6121,7 @@ public void onMsg(Object msg) {
 }
 
 /*
- *  墨鸦 Strata v5.1.1
+ *  墨鸦 Strata v5.2.2
  *  轻量级 Agentic RAG — 群聊 AI 记忆助手
  *
  *  Author:  YiJieqwq异界

@@ -1,4 +1,4 @@
-🦅 墨鸦-Strata v5.1.1 (C-VFS) 🦅
+🦅 墨鸦-Strata v5.2.2 (C-VFS) 🦅
 
 RAG增强检索 + Corax-Shell 虚拟机工作区，为您的 QFun 环境提供生产级 AI 助手。
 鸦科记忆力冠绝自然，让 AI 像乌鸦一样记住你。
@@ -37,7 +37,7 @@ search_provider = tavily
 shell_rounds = 8（最大搜索轮次）
 debug = 0
 
-v5.1.1 特性：
+v5.2.2 特性：
 - Corax-Shell 虚拟文件系统: /proc /etc /dev /persist /tmp /var, 管道|重定向|heredoc <<
 - 审批系统: 安全文件写入/快照删除需 /ai operation permit, 30s 超时自动拒绝
 - 快照管理: corax-snapshot-list/restore/rm
