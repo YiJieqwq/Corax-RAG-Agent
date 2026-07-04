@@ -10,6 +10,7 @@ import android.os.Looper;
 import java.net.*;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.json.*;
 
 // ==================== 全局变量 ====================
@@ -37,8 +38,8 @@ static long wakeWordsFileMtime = 0;
 static Timer delayTimer = null;
 static boolean aiProcessing = false;
 static long aiProcessingSince = 0;
-static long lastSendMs = 0;
-static int rapidSendCount = 0;
+static long lastRecvMs = 0;
+static int rapidRecvCount = 0;
 static boolean breakerTripped = false;
 static long breakerCooldown = 0;
 static Queue msgQueue = new LinkedList();
@@ -564,7 +565,7 @@ void touchMemory(long id) {
 
 void boostWeight(long id, int delta) {
     try {
-        getDb().execSQL("UPDATE memories SET weight = weight + " + delta + " WHERE id = " + id);
+        getDb().execSQL("UPDATE memories SET weight = weight + ? WHERE id = ?", new Object[]{delta, id});
     } catch (Exception ignored) { }
 }
 
@@ -1927,27 +1928,6 @@ dumpMsgs.put(dj);
                     }
                 }
             }
-            else if (fn.equals("toggle_listen")) {
-                boolean enable = getToolArg(tc, "enable").equals("true");
-                String key = peerUin + "_" + chatType;
-                if (enable) {
-                    clearListenLog(peerUin, chatType);
-                    addToList(pluginPath + "/config/listen_sessions.txt", key);
-                    if (listenSessions != null) {
-                        listenSessions.add(key);
-                    }
-                } else {
-                    removeFromList(pluginPath + "/config/listen_sessions.txt", key);
-                    if (listenSessions != null) {
-                        listenSessions.remove(key);
-                    }
-                }
-                Map ctxListen = new HashMap();
-                ctxListen.put("role", "system");
-                ctxListen.put("content", "<listen t=\"" + getCurrentTime() + "\">" + (enable ? "开启" : "关闭") + "</listen>");
-                ctxListen.put("_ts", System.currentTimeMillis());
-                ctx.add(ctxListen);
-            }
         }
 
         int maxSr = 8;
@@ -2075,9 +2055,6 @@ dumpMsgs.put(dj);
                                 }
                             }
                         }
-                    }
-                    else {
-                        executeMemoryCall(rtc, rfn, senderUin, userRole, peerUin, chatType, String.valueOf(msg.msgId), prompt, getMsgTimeMs(msg));
                     }
                 }
             } else break;
@@ -2341,8 +2318,7 @@ String getMemberName(int chatType, String peerUin, String uin) {
             if (mem != null && mem.uinName != null) {
                 return mem.uinName;
             }
-        } catch (NullPointerException e) { }
-        catch (Exception e) { }
+        } catch (Exception e) { }
     } else if (chatType == 1) {
         try {
             java.util.List list = getAllFriend();
@@ -2380,9 +2356,14 @@ void writeLog(String senderUin, String command) {
             logFile.getParentFile().mkdirs();
             logFile.createNewFile();
         }
-        BufferedWriter bw = new BufferedWriter(new FileWriter(logFile, true));
-        bw.write("[" + getCurrentTime() + "] [" + role + "] " + senderUin + " " + command);
-        bw.newLine(); bw.flush(); bw.close();
+        BufferedWriter bw = null;
+        try {
+            bw = new BufferedWriter(new FileWriter(logFile, true));
+            bw.write("[" + getCurrentTime() + "] [" + role + "] " + senderUin + " " + command);
+            bw.newLine(); bw.flush();
+        } finally {
+            if (bw != null) { try { bw.close(); } catch (Exception e) { } }
+        }
     } catch (Exception e) { this.log("error.txt", "writeLog: " + e.getMessage()); }
 }
 
@@ -3140,7 +3121,11 @@ String vfsReadVarLog(String path) {
 // ======= /dev/ =======
 // 消息总线 — 按 peerUin_chatType 隔离，每个会话只能读到自己的消息
 static Map msgBus = java.util.Collections.synchronizedMap(new HashMap());
+// onMainThread: 主线程重入计数器。QFun 保证 onMsg 单线程串行调用，
+// daemon/Timer 通过 Handler.post 投递到主线程，所有业务逻辑在主线程执行。
 static int onMainThread = 0;
+// onMainThread: 主线程重入计数器。QFun 保证 onMsg 单线程串行调用，
+// daemon/Timer 通过 Handler.post 投递到主线程，所有业务逻辑在主线程执行。
 static List daemonOutQueue = java.util.Collections.synchronizedList(new ArrayList());
 static List delayedTasks = java.util.Collections.synchronizedList(new ArrayList());
 static Map pendingApprovals = java.util.Collections.synchronizedMap(new HashMap());
@@ -3643,7 +3628,7 @@ String restoreSnapshot(String vpath, int snapIdx) {
 // ==================== Corax-Shell 执行器 ====================
 static Map daemons = java.util.Collections.synchronizedMap(new HashMap());
 static Map daemonOutputs = java.util.Collections.synchronizedMap(new HashMap());
-static int nextDaemonPid = 1;
+static AtomicInteger nextDaemonPid = new AtomicInteger(1);
 // 延时任务注册表 {pid: {cmd, begin, end, status}}
 static Map delayJobs = java.util.Collections.synchronizedMap(new LinkedHashMap());
 
@@ -3794,7 +3779,7 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             if (daemons.size() >= 10) {
                 return "[拒绝: daemon 数量已达上限 10，请先 kill 旧任务]";
             }
-            final int p = nextDaemonPid++;
+            final int p = nextDaemonPid.getAndIncrement();
             Thread t = new Thread(new Runnable() {
                 public void run() {
                     new Handler(Looper.getMainLooper()).post(new Runnable() {
@@ -3954,7 +3939,7 @@ void scheduleChain(final List segments, final int index, final String bgSu, fina
         return;
     }
     // 注册到进程表
-    final int jobPid = nextDaemonPid++;
+    final int jobPid = nextDaemonPid.getAndIncrement();
     StringBuilder cmdPreview = new StringBuilder();
     for (int ti = 0; ti < Math.min(segTokens.size(), 4); ti++) {
         if (ti > 0) {
@@ -5040,83 +5025,6 @@ void handleListenSummary(Object msg) {
     }
 }
 
-void executeMemoryCall(JSONObject tc, String fname, String senderUin, String userRole, String peerUin, int chatType, String sourceMsgId, String sourceText, long sourceTimeMs) {
-    try {
-        if (fname.equals("create_memory")) {
-            String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags"); String about = getToolArg(tc, "about");
-            if (content.isEmpty()) {
-                return;
-            }
-            String su = about.isEmpty() ? senderUin : about;
-            storeMemoryWithSource(senderUin, content, tags, "private", su, peerUin, chatType, sourceMsgId, sourceText, senderUin, sourceTimeMs);
-        } else if (fname.equals("create_public_memory")) {
-            String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags"); String about = getToolArg(tc, "about");
-            if (content.isEmpty()) {
-                return;
-            }
-            String su = about.isEmpty() ? senderUin : about;
-            storeMemoryWithSource(senderUin, content, tags, "public", su, peerUin, chatType, sourceMsgId, sourceText, senderUin, sourceTimeMs);
-        } else if (fname.equals("overwrite_memory")) {
-            int id = getToolArgInt(tc, "id"); String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags");
-            if (id <= 0 || content.isEmpty()) {
-                return;
-            }
-            int oldW = 1; String origSubject = senderUin;
-            Cursor c = null;
-            try {
-                c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)});
-                if (c.moveToFirst()) {
-                    oldW = c.getInt(0);
-                    String s = c.getString(1);
-                    if (s != null && !s.isEmpty()) {
-                        origSubject = s;
-                    }
-                }
-            } catch (Exception e) { }
-            finally { if (c != null) c.close(); }
-            deleteMemoryById(id, senderUin, userRole);
-            storeMemoryWithSource(senderUin, content, tags, "private", origSubject, peerUin, chatType, sourceMsgId, sourceText, senderUin, sourceTimeMs);
-            Cursor last = null;
-            try {
-                last = getDb().rawQuery("SELECT id FROM memories WHERE uin=? AND scope='private' ORDER BY id DESC LIMIT 1", new String[]{senderUin});
-                if (last.moveToFirst()) {
-                    long lastId = last.getLong(0);
-                    getDb().execSQL("UPDATE memories SET weight=? WHERE id=?", new Object[]{oldW + 1, lastId});
-                }
-            } catch (Exception e) { }
-            finally { if (last != null) last.close(); }
-        } else if (fname.equals("overwrite_public_memory")) {
-            int id = getToolArgInt(tc, "id"); String content = getToolArg(tc, "content"); String tags = getToolArg(tc, "tags");
-            if (id <= 0 || content.isEmpty()) {
-                return;
-            }
-            int oldW = 1; String origSubject = senderUin;
-            Cursor c = null;
-            try {
-                c = getDb().rawQuery("SELECT weight, subject_uin FROM memories WHERE id=?", new String[]{String.valueOf(id)});
-                if (c.moveToFirst()) {
-                    oldW = c.getInt(0);
-                    String s = c.getString(1);
-                    if (s != null && !s.isEmpty()) {
-                        origSubject = s;
-                    }
-                }
-            } catch (Exception e) { }
-            finally { if (c != null) c.close(); }
-            deleteMemoryById(id, senderUin, userRole);
-            storeMemoryWithSource(senderUin, content, tags, "public", origSubject, peerUin, chatType, sourceMsgId, sourceText, senderUin, sourceTimeMs);
-            Cursor last = null;
-            try {
-                last = getDb().rawQuery("SELECT id FROM memories WHERE scope='public' ORDER BY id DESC LIMIT 1", null);
-                if (last.moveToFirst()) {
-                    int lastId = last.getInt(0);
-                    getDb().execSQL("UPDATE memories SET weight=" + (oldW + 1) + " WHERE id=" + lastId);
-                }
-            } catch (Exception e) { }
-            finally { if (last != null) last.close(); }
-        } else if (fname.equals("delete_memory")) { int id = getToolArgInt(tc, "id"); if (id > 0) deleteMemoryById(id, senderUin, userRole); }
-    } catch (Exception e) { this.log("error.txt", "execMem: " + e.getMessage()); }
-}
 // ==================== 命令处理 ====================
 void handleAiMemory(Object msg, String args) {
     String senderUin = String.valueOf(msg.userUin);
@@ -5639,7 +5547,7 @@ public void onMsg(Object msg) {
     if (breakerTripped) {
         if (System.currentTimeMillis() - breakerCooldown < 60000) { return; }
         breakerTripped = false;
-        rapidSendCount = 0;
+        rapidRecvCount = 0;
     }
     if (msg == null) {
         return;
@@ -5650,10 +5558,10 @@ public void onMsg(Object msg) {
     long nowMs = System.currentTimeMillis();
     // 熔断：滑动窗口检测刷屏（仅统计外部消息）
     if (!String.valueOf(msg.userUin).equals(myUin)) {
-        if (nowMs - lastSendMs > 500) { rapidSendCount = 0; }
-        rapidSendCount++;
-        lastSendMs = nowMs;
-        if (rapidSendCount > 5) {
+        if (nowMs - lastRecvMs > 500) { rapidRecvCount = 0; }
+        rapidRecvCount++;
+        lastRecvMs = nowMs;
+        if (rapidRecvCount > 5) {
         breakerTripped = true;
         breakerCooldown = nowMs;
         aiProcessing = false;
@@ -6005,7 +5913,7 @@ public void onMsg(Object msg) {
     if (cmd.equals("/help")) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
-        h.append("墨鸦 v4.4.0 Strata\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
+        h.append("墨鸦 Strata v5.1.1\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
         if (role.equals("ADMIN") || role.equals("OWNER")) {
             h.append("/ai set / config / off / on / clear\n");
         }
