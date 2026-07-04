@@ -1414,7 +1414,6 @@ void handleAi(Object msg, String prompt) {
         sendStyledHeader(msg, "INFO", "当前会话: AI " + (en.contains(peerUin + "_" + chatType) ? "已启用" : "未启用")); return;
     }
     if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
-        sendStyledHeader(msg, "INFO", "AI 未启用，发送 /ai on 启用");
         return;
     }
     if (!canUseAi(senderUin)) {
@@ -5756,13 +5755,12 @@ public void onMsg(Object msg) {
             return;
         }
         String aiArg = trimmed.length() > 3 ? trimmed.substring(3).trim() : "";
-        if (aiArg.isEmpty()) {
-            if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
-                return;
-            }
-            sendStyledHeader(msg, "ERROR", "/ai <内容> / memory / debug / reboot / set / config / forget / off / on / status");
+        // on/off/status 无需启用
+        boolean isCtl = aiArg.equalsIgnoreCase("on") || aiArg.equalsIgnoreCase("off") || aiArg.equalsIgnoreCase("status");
+        if (!isCtl && !readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
             return;
         }
+        if (aiArg.isEmpty()) {
         handleAi(msg, aiArg); return;
     }
     if (!aiProcessing && startsWithWakeWord(trimmed)) {
