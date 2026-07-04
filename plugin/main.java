@@ -1706,24 +1706,25 @@ dumpMsgs.put(dj);
     // 确保 tool call/result 配对：移除孤儿消息防止 DeepSeek 400
     {
         JSONArray cleanMsgs = new JSONArray();
-        boolean pendingToolCall = false;
+        int pendingTC = 0;
         for (int ci = 0; ci < ai2Msgs.length(); ci++) {
             JSONObject cj = ai2Msgs.getJSONObject(ci);
             String cr = cj.optString("role", "");
             boolean hasTC = cj.has("tool_calls");
             boolean hasTCId = cj.has("tool_call_id");
             if ("tool".equals(cr) && hasTCId) {
-                if (pendingToolCall) {
+                if (pendingTC > 0) {
                     cleanMsgs.put(cj);
-                    pendingToolCall = false;
+                    pendingTC--;
                 }
                 // else: orphan tool, drop it
             } else if ("assistant".equals(cr) && hasTC) {
                 cleanMsgs.put(cj);
-                pendingToolCall = true;
+                JSONArray tca = cj.optJSONArray("tool_calls");
+                pendingTC = (tca != null) ? tca.length() : 1;
             } else {
                 cleanMsgs.put(cj);
-                pendingToolCall = false;
+                pendingTC = 0;
             }
         }
         ai2Msgs = cleanMsgs;
