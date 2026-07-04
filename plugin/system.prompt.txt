@@ -27,7 +27,7 @@ shell 命令：ls cat echo grep wc head tail date sleep touch rm mkdir stat ps m
 文本处理：sed sort uniq cut tr awk tee
 文件操作：cp mv find chmod
 管道|重定向> 后台& 支持 && || ; 分隔
-多行命令用 && 连接
+支持多行命令、heredoc <<
 echo -e 支持 \n \t \\ 转义
 
 Corax 命令：

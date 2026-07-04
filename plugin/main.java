@@ -3667,6 +3667,17 @@ String shellExecLine(String line, String senderUin, String peerUin, int chatType
             pos++;
             continue;
         }
+        // 换行 = 分号
+        if (c == '\n' || c == '\r') {
+            tokens.add(";");
+            pos++;
+            continue;
+        }
+        if (c == '\\' && pos + 1 < line.length() && line.charAt(pos + 1) == 'n') {
+            tokens.add(";");
+            pos += 2;
+            continue;
+        }
         // 忽略 >&N stderr 重定向
         if (c == '>' && pos + 1 < line.length() && line.charAt(pos + 1) == '&') {
             pos += 2;
@@ -4016,8 +4027,8 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
                     while (idx[0] < tokens.size()) {
                         String tk = (String) tokens.get(idx[0]);
                         if (tk.equals(delim)) { idx[0]++; break; }
-                        if (hd.length() > 0) { hd.append("\n"); }
-                        hd.append(tk);
+                        if (hd.length() > 0 && !tk.equals(";")) { hd.append("\n"); }
+                        if (!tk.equals(";")) { hd.append(tk); }
                         idx[0]++;
                     }
                     pipeIn = hd.toString();
@@ -4054,8 +4065,8 @@ String parsePipeline(List tokens, int[] idx, String stdin, String senderUin, Str
                     while (idx[0] < tokens.size()) {
                         String tk = (String) tokens.get(idx[0]);
                         if (tk.equals(delim)) { idx[0]++; break; }
-                        if (hd.length() > 0) { hd.append("\n"); }
-                        hd.append(tk);
+                        if (hd.length() > 0 && !tk.equals(";")) { hd.append("\n"); }
+                        if (!tk.equals(";")) { hd.append(tk); }
                         idx[0]++;
                     }
                     pipeIn = hd.toString();
@@ -5746,6 +5757,9 @@ public void onMsg(Object msg) {
         }
         String aiArg = trimmed.length() > 3 ? trimmed.substring(3).trim() : "";
         if (aiArg.isEmpty()) {
+            if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
+                return;
+            }
             sendStyledHeader(msg, "ERROR", "/ai <内容> / memory / debug / reboot / set / config / forget / off / on / status");
             return;
         }
