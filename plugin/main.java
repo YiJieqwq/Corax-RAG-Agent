@@ -1309,10 +1309,21 @@ void addToContext(List ctx, String role, String content, String name) {
 }
 
 void addToContextTC(List ctx, String role, String content, String name, JSONArray toolCalls, String toolCallId) {
-    // 检测不配对：tool 消息前应该有 assistant+tool_calls
+    // 检测不配对：tool 消息向前找 assistant+tool_calls（支持并行多 tool）
     if ("tool".equals(role) && !ctx.isEmpty()) {
-        Map prev = (Map) ctx.get(ctx.size() - 1);
-        if (!"assistant".equals(prev.get("role")) || prev.get("tool_calls") == null) {
+        boolean paired = false;
+        for (int pi = ctx.size() - 1; pi >= 0; pi--) {
+            Map pm = (Map) ctx.get(pi);
+            if ("tool".equals(pm.get("role"))) {
+                continue;
+            }
+            if ("assistant".equals(pm.get("role")) && pm.get("tool_calls") != null) {
+                paired = true;
+                break;
+            }
+            break;
+        }
+        if (!paired) {
             this.log("error.txt", "orphan tool call: " + toolCallId + " has no preceding assistant+tool_calls");
         }
     }
