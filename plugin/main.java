@@ -2872,7 +2872,7 @@ String vfsRead(String path, String senderUin, String peerUin, int chatType) {
     }
     // directories
     if (path.equals("/bin") || path.equals("/bin/")) {
-        return "touch rm mkdir chmod find sort uniq cut sed corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm stat corax-help";
+        return "ls cat echo grep wc head tail date sleep touch rm mkdir stat ps mount sed sort uniq cut tr awk tee cp mv find chmod corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-search corax-fetch corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm stat corax-sendfile corax-help";
     }
     if (path.equals("/")) {
         return "bin/  proc/  etc/  dev/  ctx/  var/  src/  tmp/  persist/  usr/";
@@ -4802,11 +4802,12 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
         }
         if (cmd.equals("corax-help")) {
             return "Corax-Shell v5.1.1\n\n"
-                + "内置命令: ls cat echo grep wc head tail date sleep\n"
-                + "Corax命令: sed corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-listen corax-reboot corax-snapshot-list corax-snapshot-restore corax-snapshot-rm\n"
-                + "管道/重定向: | > >> &\n"
-                + "文件系统: /proc/ /etc/ /dev/ /ctx/ /var/ /tmp/ /persist/ /src/\n"
-                + "查阅 /persist/DevDocs.md 了解项目架构";
+                + "内置: ls cat echo grep wc head tail date sleep touch rm mkdir stat ps mount\n"
+                + "文本: sed sort uniq cut tr awk tee\n"
+                + "文件: cp mv find chmod\n"
+                + "Corax: corax-search corax-fetch corax-mem-create corax-mem-rm corax-mem-tag corax-mem-search corax-sendfile corax-snapshot-list corax-snapshot-restore corax-snapshot-rm corax-reboot corax-listen\n"
+                + "管道/重定向: | > >> & && || ; heredoc <<\n"
+                + "文件系统: /proc/ /etc/ /dev/ /ctx/ /var/ /tmp/ /persist/ /src/ /bin/";
         }
         return cmd + ": 命令不存在。查看可用命令: corax-help";
     } catch (Exception e) {
@@ -5729,6 +5730,9 @@ public void onMsg(Object msg) {
     trimmed = sewardenClean(trimmed);
 
     if (trimmed.startsWith("/ai tmp clear")) {
+        if (!readStringSet(pluginPath + "/config/enabled_conversations.txt").contains(peerUin + "_" + chatType)) {
+            return;
+        }
         vfsTmp.clear();
         File tmpd = new File(pluginPath + "/tmp");
         if (tmpd.exists()) {
@@ -5945,14 +5949,10 @@ public void onMsg(Object msg) {
     if (cmd.equals("/help")) {
         String role = getRole(senderUin);
         StringBuilder h = new StringBuilder();
-        h.append("墨鸦 Strata v5.1.1\n\n/ai <内容>\n/ai memory / debug / reboot / status\n");
+        h.append("墨鸦 Strata v5.1.1\n\n/ai <内容> — 对话\n/ai on/off/status — 会话开关\n/ai set <key> <value> — 配置\n/ai clear — 清空上下文\n/ai dumpctx — 导出上下文\n/ai memory — 记忆管理\n/ai reboot — 切换人设\n/ai listen — 监听模式\n/ai tmp clear — 清理临时文件\n/whoami — 查看身份");
         if (role.equals("ADMIN") || role.equals("OWNER")) {
-            h.append("/ai set / config / off / on / clear\n");
+            h.append("\n/admin <@> /member <@> /block <@>");
         }
-        if (role.equals("OWNER")) {
-            h.append("/setdefaultaccount\n");
-        }
-        h.append("\n墨鸦-Strata | 轻量级 Agentic RAG");
         sendStyledHeader(msg, "INFO", h.toString()); return;
     }
     String role = getRole(senderUin);
