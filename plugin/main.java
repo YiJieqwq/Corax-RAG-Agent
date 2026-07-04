@@ -3993,16 +3993,19 @@ String parseSequence(List tokens, int[] idx, String stdin, String senderUin, Str
         }
         else if (op.equals("&&")) {
             idx[0]++;
-            if (result != null && !result.isEmpty()) {
+            // &&: 前一条成功（没有以"["开头的错误消息）才继续
+            boolean prevOk = result == null || result.isEmpty() || !result.startsWith("[");
+            if (prevOk) {
                 result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
             } else {
-                // 短路：消费右端 pipeline 的 tokens 但丢弃结果
                 parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
             }
         }
         else if (op.equals("||")) {
             idx[0]++;
-            if (result == null || result.isEmpty()) {
+            // ||: 前一条失败（以"["开头的错误消息）才继续
+            boolean prevFail = result != null && !result.isEmpty() && result.startsWith("[");
+            if (prevFail) {
                 result = parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
             } else {
                 parsePipeline(tokens, idx, "", senderUin, peerUin, chatType);
