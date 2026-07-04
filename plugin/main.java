@@ -1226,7 +1226,7 @@ void trimCtx(List ctx) {
             break;
         }
     }
-    // 清除尾部的孤立 assistant+tool_calls（后置 tool 已被截断，但有 1 条缓冲）
+    // 清除尾部的孤立 assistant+tool_calls（后置 tool 已被截断）
     while (ctx.size() > 1) {
         Map last = (Map) ctx.get(ctx.size() - 1);
         Map prev = (Map) ctx.get(ctx.size() - 2);
@@ -1236,6 +1236,31 @@ void trimCtx(List ctx) {
         } else {
             break;
         }
+    }
+    // 全量校验：移除所有不配对的 tool 消息（前置 assistant+tool_calls 缺失）
+    int ti = 0;
+    while (ti < ctx.size()) {
+        Map m = (Map) ctx.get(ti);
+        if ("tool".equals(m.get("role")) && m.get("tool_call_id") != null) {
+            boolean paired = false;
+            for (int pi = ti - 1; pi >= 0; pi--) {
+                Map pm = (Map) ctx.get(pi);
+                if ("tool".equals(pm.get("role"))) {
+                    continue;
+                }
+                if ("assistant".equals(pm.get("role")) && pm.get("tool_calls") != null) {
+                    paired = true;
+                    break;
+                }
+                // 遇到 user/system 消息，说明前面没有配对的 assistant
+                break;
+            }
+            if (!paired) {
+                ctx.remove(ti);
+                continue;
+            }
+        }
+        ti++;
     }
 }
 
