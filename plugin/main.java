@@ -1287,16 +1287,11 @@ void addToContext(List ctx, String role, String content, String name) {
 }
 
 void addToContextTC(List ctx, String role, String content, String name, JSONArray toolCalls, String toolCallId) {
-    // 兜底：如果是 tool 角色，检查前一条是否 assistant+tool_calls，不是则补
+    // 检测不配对：tool 消息前应该有 assistant+tool_calls
     if ("tool".equals(role) && !ctx.isEmpty()) {
         Map prev = (Map) ctx.get(ctx.size() - 1);
         if (!"assistant".equals(prev.get("role")) || prev.get("tool_calls") == null) {
-            Map ph = new HashMap();
-            ph.put("role", "assistant");
-            ph.put("content", "");
-            ph.put("tool_calls", new JSONArray());
-            ph.put("_ts", System.currentTimeMillis());
-            ctx.add(ph);
+            this.log("error.txt", "orphan tool call: " + toolCallId + " has no preceding assistant+tool_calls");
         }
     }
     Map m = new HashMap();
