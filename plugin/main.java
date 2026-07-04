@@ -1570,7 +1570,9 @@ void handleAi(Object msg, String prompt) {
     }
     Map cfg = loadAiConfig();
     if (((String) cfg.get("api_key")).isEmpty()) {
-        sendStyledHeader(msg, "ERROR", "未配置 api_key，发送 /ai set api_key sk-xxx 配置"); aiProcessing = false; return;
+        sendStyledHeader(msg, "ERROR", "未配置 api_key，发送 /ai set api_key sk-xxx 配置");
+        aiProcessing = false;
+        return;
     }
 
     if (trimmed.equals("dumpctx")) {
@@ -1821,7 +1823,11 @@ dumpMsgs.put(dj);
         }
         try { totalPt += Integer.parseInt(String.valueOf(ai2Result.get("prompt_tokens"))); } catch (Exception e) { }
         try { totalCt += Integer.parseInt(String.valueOf(ai2Result.get("completion_tokens"))); } catch (Exception e) { }
-    } else { sendStyledHeader(msg, "ERROR", "AI 服务暂时不可用"); aiProcessing = false; return; }
+    } else {
+        sendStyledHeader(msg, "ERROR", "AI 服务暂时不可用");
+        aiProcessing = false;
+        return;
+    }
 
     // ctx 顺序：先记录 user + R1，再处理工具循环（R2 助理回复在其后，保证历史顺序正确）
     addToContext(ctx, "system",
