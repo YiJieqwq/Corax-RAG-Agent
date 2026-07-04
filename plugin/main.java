@@ -1199,7 +1199,7 @@ void saveCtxToDisk(String peerUin, int chatType, List forSave) {
 }
 
 void trimCtx(List ctx) {
-    int ctxLimit = 60;
+    int ctxLimit = 200;
     try { ctxLimit = Integer.parseInt(getAiConfig("context_limit")); } catch (Exception e) { }
     // 按对话轮数截断（一轮 = 用户消息 → AI回复 → 工具调用）
     int rounds = 0;
@@ -1214,21 +1214,30 @@ void trimCtx(List ctx) {
             }
         }
     }
+    if (keepFrom > 0) {
+        this.log("ctx.log", "trimCtx: 丢弃 " + keepFrom + " 条历史消息 (超限 " + ctxLimit + " 轮)");
+    }
     while (keepFrom > 0) {
         ctx.remove(0);
         keepFrom--;
     }
     // 清除开头的孤立 tool 消息（前置 assistant+tool_calls 已被截断）
+    int headOrphan = 0;
     while (!ctx.isEmpty()) {
         Map first = (Map) ctx.get(0);
         if ("tool".equals(first.get("role"))) {
             ctx.remove(0);
+            headOrphan++;
         } else {
             break;
         }
     }
+    if (headOrphan > 0) {
+        this.log("ctx.log", "trimCtx: 清除 " + headOrphan + " 条首部孤 tool 消息");
+    }
     // 清除尾部的孤立 assistant+tool_calls（后置 tool 已被截断）
     // 仅当上一条非 user/system 时清（user 后的 assistant 是新加的，不应删除）
+    int tailOrphan = 0;
     while (ctx.size() > 1) {
         Map last = (Map) ctx.get(ctx.size() - 1);
         Map prev = (Map) ctx.get(ctx.size() - 2);
@@ -1237,11 +1246,16 @@ void trimCtx(List ctx) {
             && !"user".equals(prev.get("role"))
             && !"system".equals(prev.get("role"))) {
             ctx.remove(ctx.size() - 1);
+            tailOrphan++;
         } else {
             break;
         }
     }
+    if (tailOrphan > 0) {
+        this.log("ctx.log", "trimCtx: 清除 " + tailOrphan + " 条尾部孤 assistant+tool_calls");
+    }
     // 全量校验：移除所有不配对的 tool 消息（前置 assistant+tool_calls 缺失）
+    int midOrphan = 0;
     int ti = 0;
     while (ti < ctx.size()) {
         Map m = (Map) ctx.get(ti);
@@ -1261,10 +1275,14 @@ void trimCtx(List ctx) {
             }
             if (!paired) {
                 ctx.remove(ti);
+                midOrphan++;
                 continue;
             }
         }
         ti++;
+    }
+    if (midOrphan > 0) {
+        this.log("ctx.log", "trimCtx: 清除 " + midOrphan + " 条中间孤 tool 消息");
     }
 }
 
