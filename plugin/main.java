@@ -4437,11 +4437,14 @@ String shellBuiltin(String cmd, String[] args, String stdin, String senderUin, S
                     String tmpContent = (String) vfsTmp.get(filePath);
                     if (tmpContent != null) {
                         try {
+                            File tmpDir = new File(pluginPath + "/tmp");
+                            if (!tmpDir.exists()) { tmpDir.mkdirs(); }
                             String tmpName = filePath.substring(filePath.lastIndexOf("/") + 1);
-                            f = new File(pluginPath + "/" + tmpName);
+                            f = new File(tmpDir, tmpName);
                             PrintWriter pw = new PrintWriter(new FileWriter(f));
                             pw.print(tmpContent);
                             pw.close();
+                            f.deleteOnExit();
                         } catch (Exception e) { return "文件写入失败"; }
                     }
                 }
@@ -5551,6 +5554,12 @@ public void onDestroy() {
     }
     aiContexts.clear();
     closeSharedDb();
+    // 清理临时文件
+    File tmpDir = new File(pluginPath + "/tmp");
+    if (tmpDir.exists()) {
+        File[] tmpFiles = tmpDir.listFiles();
+        if (tmpFiles != null) for (int i = 0; i < tmpFiles.length; i++) tmpFiles[i].delete();
+    }
 }
 
 // ==================== 拍一拍 ====================
