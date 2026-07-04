@@ -5761,6 +5761,9 @@ public void onMsg(Object msg) {
             return;
         }
         if (aiArg.isEmpty()) {
+            sendStyledHeader(msg, "ERROR", "/ai <内容> / memory / debug / reboot / set / config / forget / off / on / status");
+            return;
+        }
         handleAi(msg, aiArg); return;
     }
     if (!aiProcessing && startsWithWakeWord(trimmed)) {
