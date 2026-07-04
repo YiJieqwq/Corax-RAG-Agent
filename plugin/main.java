@@ -1228,11 +1228,14 @@ void trimCtx(List ctx) {
         }
     }
     // 清除尾部的孤立 assistant+tool_calls（后置 tool 已被截断）
+    // 仅当上一条非 user/system 时清（user 后的 assistant 是新加的，不应删除）
     while (ctx.size() > 1) {
         Map last = (Map) ctx.get(ctx.size() - 1);
         Map prev = (Map) ctx.get(ctx.size() - 2);
         if ("assistant".equals(last.get("role")) && last.get("tool_calls") != null
-            && !"tool".equals(prev.get("role"))) {
+            && !"tool".equals(prev.get("role"))
+            && !"user".equals(prev.get("role"))
+            && !"system".equals(prev.get("role"))) {
             ctx.remove(ctx.size() - 1);
         } else {
             break;
