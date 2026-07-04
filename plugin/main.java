@@ -3137,7 +3137,7 @@ static Map msgBus = java.util.Collections.synchronizedMap(new HashMap());
 static int onMainThread = 0;
 static List daemonOutQueue = java.util.Collections.synchronizedList(new ArrayList());
 static List delayedTasks = java.util.Collections.synchronizedList(new ArrayList());
-static Map pendingApprovals = new HashMap();
+static Map pendingApprovals = java.util.Collections.synchronizedMap(new HashMap());
 static int nextApprovalId = 1;
 String vfsReadDev(String path, String peerUin, int chatType) {
     if (path.equals("/dev/msg-stream")) {
@@ -5004,7 +5004,10 @@ void handleListenSummary(Object msg) {
     u.put("role", "user");
     u.put("content", logText);
     msgs.put(u);
-    String sp = "你是群聊记录总结器。请基于用户提供的监听期群聊记录，输出简洁中文总结。必须包含：主要话题、重要结论、待办/约定、出现的链接或资源、需要后续确认的点。不要编造记录中没有的信息。";
+    String sp = "你是群聊记录总结器。"
+        + "请基于用户提供的监听期群聊记录，输出简洁中文总结。"
+        + "必须包含：主要话题、重要结论、待办/约定、出现的链接或资源、"
+        + "需要后续确认的点。不要编造记录中没有的信息。";
     Map r = callAI("", sp, msgs, 4096, null);
     if (r == null) {
         sendStyledHeader(msg, "ERROR", "AI 服务暂时不可用，监听记录未删除");
@@ -5026,6 +5029,8 @@ void handleListenSummary(Object msg) {
     clearListenLog(peerUin, chatType);
     } finally {
         aiProcessing = false;
+        aiProcessingSince = 0;
+        processQueue();
     }
 }
 
@@ -5753,7 +5758,7 @@ public void onMsg(Object msg) {
     // 操作审批 + 等待审批状态
     // 消息队列：正在处理消息时缓存新消息，但优先处理审批指令
     if (aiProcessing) {
-        String waitOp = msg.msg.trim();
+        String waitOp = (msg.msg != null) ? msg.msg.trim() : "";
         if (waitOp.equals("/ai operation permit")) { handleOperationApproval(msg, true); return; }
         if (waitOp.equals("/ai operation reject")) { handleOperationApproval(msg, false); return; }
         if (msgQueue.size() >= MSG_QUEUE_MAX) { msgQueue.poll(); }
