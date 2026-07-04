@@ -3984,6 +3984,10 @@ void scheduleChain(final List segments, final int index, final String bgSu, fina
 
 // 解析序列: pipeline ((; | && | ||) pipeline)*
 String parseSequence(List tokens, int[] idx, String stdin, String senderUin, String peerUin, int chatType) {
+    // 跳过前导分号（空序列，来自 \n→; 转换）
+    while (idx[0] < tokens.size() && ";".equals(tokens.get(idx[0]))) {
+        idx[0]++;
+    }
     String result = parsePipeline(tokens, idx, stdin, senderUin, peerUin, chatType);
     while (idx[0] < tokens.size()) {
         String op = (String) tokens.get(idx[0]);
